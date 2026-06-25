@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Body Reader — POC</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: "Segoe UI", sans-serif;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #666;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.06em;
+    }
+
+    /* Each row is a CSS grid with one column per Chinese character (14 total). */
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(14, 2.6rem);
+    }
+
+    /* (a) Chinese characters */
+    .row-chinese > div {
+      font-size: 1.9rem;
+      text-align: center;
+      padding: 0.25rem 0.05rem 0.1rem;
+      color: #f0d090;
+    }
+
+    /* (b) Pinyin — one cell per character, aligned under (a) */
+    .row-pinyin > div {
+      font-size: 0.73rem;
+      text-align: center;
+      padding: 0.05rem 0.05rem 0.3rem;
+      color: #6ab0f5;
+    }
+
+    /* (c) Per-word English — uses grid-column span for multi-char words */
+    .row-words {
+      border-top: 1px solid #2d2d2d;
+      border-bottom: 1px solid #2d2d2d;
+    }
+
+    .row-words > div {
+      font-size: 0.72rem;
+      text-align: center;
+      padding: 0.25rem 0.1rem;
+      color: #7dd87d;
+      border-right: 1px solid #222;
+    }
+    .row-words > div:last-child { border-right: none; }
+
+    /* (d) Full sentence translation */
+    .row-translation {
+      padding: 0.6rem 0.2rem 0;
+      font-size: 0.95rem;
+      color: #999;
+      font-style: italic;
+    }
+
+    /* row labels */
+    .row-label {
+      font-size: 0.62rem;
+      color: #444;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 0.5rem 0 0.1rem;
+    }
+    .row-label:first-child { padding-top: 0; }
+  </style>
+</head>
+<body>
+  <h1>Three Body Reader — proof of concept</h1>
+
+  <!--
+    Sample sentence from chapter 1:
+    大楼顶上出现了一个娇小的身影
+    Segmentation: 大楼 / 顶上 / 出现 / 了 / 一个 / 娇小 / 的 / 身影
+    "A petite figure appeared at the top of the building."
+  -->
+
+  <div class="row-label">(a) original</div>
+  <div class="char-grid row-chinese">
+    <div>大</div><div>楼</div>
+    <div>顶</div><div>上</div>
+    <div>出</div><div>现</div>
+    <div>了</div>
+    <div>一</div><div>个</div>
+    <div>娇</div><div>小</div>
+    <div>的</div>
+    <div>身</div><div>影</div>
+  </div>
+
+  <div class="row-label">(b) pinyin</div>
+  <div class="char-grid row-pinyin">
+    <div>dà</div><div>lóu</div>
+    <div>dǐng</div><div>shàng</div>
+    <div>chū</div><div>xiàn</div>
+    <div>le</div>
+    <div>yī</div><div>gè</div>
+    <div>jiāo</div><div>xiǎo</div>
+    <div>de</div>
+    <div>shēn</div><div>yǐng</div>
+  </div>
+
+  <div class="row-label">(c) words</div>
+  <div class="char-grid row-words">
+    <div style="grid-column:span 2">building</div>
+    <div style="grid-column:span 2">on top</div>
+    <div style="grid-column:span 2">appeared</div>
+    <div style="grid-column:span 1">[perf]</div>
+    <div style="grid-column:span 2">a</div>
+    <div style="grid-column:span 2">petite</div>
+    <div style="grid-column:span 1">[adj]</div>
+    <div style="grid-column:span 2">figure</div>
+  </div>
+
+  <div class="row-label">(d) translation</div>
+  <div class="row-translation">
+    A petite figure appeared at the top of the building.
+  </div>
+
+</body>
+</html>
