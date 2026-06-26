@@ -24,7 +24,9 @@ Do not commit the data in "example-data", but feel free to add stuff there durin
 | `poc4.html` | Multiple sentences loaded from an external data file; per-sentence TTS buttons |
 | `poc5.html` | Adds hover highlight: mousing over a character turns all occurrences red |
 | `poc6.html` | Adds click-to-fade on (b) and (c); faded state persisted in `localStorage` |
+| `poc7.html` | Paragraph navigation (prev/next); first 3 paragraphs of chapter 1 |
 | `example-data/sentences-poc4.js` | Sentence data for poc4–poc6 (not committed) |
+| `example-data/paragraphs-poc7.js` | Paragraph data for poc7 — 3 paragraphs, 11 sentences (not committed) |
 
 ## Technical notes
 
@@ -48,3 +50,8 @@ Do not commit the data in "example-data", but feel free to add stuff there durin
 ### Interactivity (poc5+)
 - **Hover highlight (poc5):** character spans are grouped by character into a `Map`; mouseenter/mouseleave adds/removes a CSS class on all spans in the group.
 - **Click-to-fade (poc6):** two `localStorage` sets — `faded-pinyin` (keyed by individual character, e.g. `"的"`) and `faded-gloss` (keyed by joined word chars, e.g. `"大楼"`). Clicking a pinyin syllable fades that character's pinyin everywhere; clicking a gloss fades that word's gloss everywhere. Row (a) has no click interaction.
+
+### Paragraph navigation (poc7)
+- Data format changes from `window.SENTENCES` (flat array) to `window.PARAGRAPHS` (array of `{ sentences: [...] }`).
+- `showParagraph(index)` clears the DOM and both Maps, re-renders, then re-applies faded state — the Maps are paragraph-scoped, not global.
+- Current paragraph index is persisted in `localStorage['paragraph-index']` and restored on load.
