@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Body Reader — POC 6</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: "Segoe UI", sans-serif;
+      padding: 2rem;
+      max-width: 56rem;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #666;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.06em;
+    }
+
+    .sentence-block { margin-bottom: 3rem; }
+
+    .sentence-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.1rem;
+    }
+
+    .row-label {
+      font-size: 0.62rem;
+      color: #444;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 0.5rem 0 0.3rem;
+    }
+
+    .sentence-header .row-label { padding: 0; }
+
+    button.speak {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.1rem 0.3rem;
+      line-height: 1;
+    }
+    button.speak:hover { color: #aaa; }
+    button.speak.playing { color: #e05050; }
+
+    .sentence {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      row-gap: 1.2rem;
+    }
+
+    .word { display: inline-flex; flex-direction: column; }
+
+    /* (a) Chinese — hover highlight only, no click */
+    .word .row-a { display: flex; }
+    .word .row-a span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 1.9rem;
+      color: #f0d090;
+      padding: 0.25rem 0.05rem 0.1rem;
+      cursor: default;
+    }
+    .word .row-a span.highlight { color: #e05050; }
+
+    /* (b) Pinyin — individual spans are clickable */
+    .word .row-b { display: flex; }
+    .word .row-b span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 0.73rem;
+      color: #6ab0f5;
+      padding: 0.05rem 0.05rem 0.3rem;
+    }
+    .word:not(.punct) .row-b span { cursor: pointer; }
+    .word .row-b span.faded { opacity: 0.5; }
+
+    /* (c) Gloss — whole cell is clickable */
+    .word .row-c {
+      font-size: 0.72rem;
+      text-align: center;
+      color: #7dd87d;
+      padding: 0.25rem 0.1rem;
+      border-top: 1px solid #2d2d2d;
+      border-bottom: 1px solid #2d2d2d;
+      border-right: 1px solid #222;
+      min-height: 1.55rem;
+    }
+    .word:not(.punct) .row-c { cursor: pointer; }
+    .word.faded-gloss .row-c { opacity: 0.5; }
+
+    .word.punct .row-a span { color: #666; font-size: 1.5rem; }
+
+    .row-d {
+      padding: 0.6rem 0.2rem 0;
+      font-size: 0.95rem;
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>Three Body Reader — POC 6</h1>
+  <div id="root"></div>
+
+  <script src="example-data/sentences-poc4.js"></script>
+  <script>
+    // --- TTS ---
+    let voices = speechSynthesis.getVoices();
+    speechSynthesis.addEventListener('voiceschanged', () => { voices = speechSynthesis.getVoices(); });
+
+    let activeBtn = null;
+
+    function stopCurrent() {
+      speechSynthesis.cancel();
+      if (activeBtn) {
+        activeBtn.textContent = '▶';
+        activeBtn.classList.remove('playing');
+        activeBtn = null;
+      }
+    }
+
+    function speak(ttsText, btn) {
+      if (activeBtn === btn) { stopCurrent(); return; }
+      stopCurrent();
+      const utterance = new SpeechSynthesisUtterance(ttsText);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.3;
+      const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+      if (zhVoice) utterance.voice = zhVoice;
+      utterance.onstart = () => { activeBtn = btn; btn.textContent = '■'; btn.classList.add('playing'); };
+      utterance.onend   = () => { btn.textContent = '▶'; btn.classList.remove('playing'); if (activeBtn === btn) activeBtn = null; };
+      speechSynthesis.speak(utterance);
+    }
+
+    // --- Fade persistence ---
+    // fadedPinyin: keyed by individual character e.g. "的"
+    // fadedGloss:  keyed by joined word chars   e.g. "大楼"
+    const fadedPinyin = new Set(JSON.parse(localStorage.getItem('faded-pinyin') || '[]'));
+    const fadedGloss  = new Set(JSON.parse(localStorage.getItem('faded-gloss')  || '[]'));
+
+    // char → [pinyin spans]  (one span per occurrence of that character)
+    const pinyinSpansByChar = new Map();
+    // joined chars → [word divs]
+    const wordsByKey = new Map();
+
+    function saveFaded() {
+      localStorage.setItem('faded-pinyin', JSON.stringify([...fadedPinyin]));
+      localStorage.setItem('faded-gloss',  JSON.stringify([...fadedGloss]));
+    }
+
+    function applyFaded() {
+      for (const [ch, spans] of pinyinSpansByChar) {
+        const faded = fadedPinyin.has(ch);
+        for (const s of spans) s.classList.toggle('faded', faded);
+      }
+      for (const [key, divs] of wordsByKey) {
+        const faded = fadedGloss.has(key);
+        for (const div of divs) div.classList.toggle('faded-gloss', faded);
+      }
+    }
+
+    // --- Render ---
+    function renderSentence(sentenceData) {
+      const ttsText = sentenceData.words.map(w => w.chars.join('')).join('');
+
+      const block = document.createElement('div');
+      block.className = 'sentence-block';
+
+      const header = document.createElement('div');
+      header.className = 'sentence-header';
+      const btn = document.createElement('button');
+      btn.className = 'speak';
+      btn.title = 'Read aloud (slow)';
+      btn.textContent = '▶';
+      btn.addEventListener('click', () => speak(ttsText, btn));
+      header.appendChild(btn);
+      const labelABC = document.createElement('div');
+      labelABC.className = 'row-label';
+      labelABC.textContent = '(a) original · (b) pinyin · (c) words';
+      header.appendChild(labelABC);
+      block.appendChild(header);
+
+      const flow = document.createElement('div');
+      flow.className = 'sentence';
+
+      for (const w of sentenceData.words) {
+        const wordKey = w.chars.join('');
+        const div = document.createElement('div');
+        div.className = 'word' + (w.punct ? ' punct' : '');
+
+        // (a) Chinese chars
+        const rowA = document.createElement('div');
+        rowA.className = 'row-a';
+        for (const ch of w.chars) {
+          const s = document.createElement('span');
+          s.textContent = ch;
+          rowA.appendChild(s);
+        }
+
+        // (b) Pinyin — one span per character, clickable individually
+        const rowB = document.createElement('div');
+        rowB.className = 'row-b';
+        const pinyins = w.pinyins || w.chars.map(() => '');
+        w.chars.forEach((ch, i) => {
+          const s = document.createElement('span');
+          s.textContent = pinyins[i];
+
+          if (!w.punct && pinyins[i]) {
+            // Register span under its character
+            if (!pinyinSpansByChar.has(ch)) pinyinSpansByChar.set(ch, []);
+            pinyinSpansByChar.get(ch).push(s);
+
+            s.addEventListener('click', () => {
+              fadedPinyin.has(ch) ? fadedPinyin.delete(ch) : fadedPinyin.add(ch);
+              saveFaded();
+              applyFaded();
+            });
+          }
+
+          rowB.appendChild(s);
+        });
+
+        // (c) Gloss — whole cell, word-level key
+        const rowC = document.createElement('div');
+        rowC.className = 'row-c';
+        rowC.textContent = w.gloss || '';
+
+        div.appendChild(rowA);
+        div.appendChild(rowB);
+        div.appendChild(rowC);
+        flow.appendChild(div);
+
+        if (!w.punct) {
+          if (!wordsByKey.has(wordKey)) wordsByKey.set(wordKey, []);
+          wordsByKey.get(wordKey).push(div);
+
+          rowC.addEventListener('click', () => {
+            fadedGloss.has(wordKey) ? fadedGloss.delete(wordKey) : fadedGloss.add(wordKey);
+            saveFaded();
+            applyFaded();
+          });
+        }
+      }
+
+      block.appendChild(flow);
+
+      const labelD = document.createElement('div');
+      labelD.className = 'row-label';
+      labelD.textContent = '(d) translation';
+      block.appendChild(labelD);
+      const rowD = document.createElement('div');
+      rowD.className = 'row-d';
+      rowD.textContent = sentenceData.translation;
+      block.appendChild(rowD);
+
+      return block;
+    }
+
+    const root = document.getElementById('root');
+    for (const s of window.SENTENCES) root.appendChild(renderSentence(s));
+
+    applyFaded();
+
+    // --- Hover highlight on (a) ---
+    const charSpans = Array.from(document.querySelectorAll('.word:not(.punct) .row-a span'));
+    const byChar = new Map();
+    for (const span of charSpans) {
+      const ch = span.textContent;
+      if (!byChar.has(ch)) byChar.set(ch, []);
+      byChar.get(ch).push(span);
+    }
+    for (const span of charSpans) {
+      const group = byChar.get(span.textContent);
+      span.addEventListener('mouseenter', () => { for (const s of group) s.classList.add('highlight'); });
+      span.addEventListener('mouseleave', () => { for (const s of group) s.classList.remove('highlight'); });
+    }
+  </script>
+</body>
+</html>

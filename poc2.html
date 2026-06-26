@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Body Reader — POC 2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: "Segoe UI", sans-serif;
+      padding: 2rem;
+      max-width: 56rem;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #666;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.06em;
+    }
+
+    /* row labels */
+    .row-label {
+      font-size: 0.62rem;
+      color: #444;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 0.5rem 0 0.3rem;
+    }
+
+    /*
+      Each .word is a vertical stack of (a) chars / (b) pinyin / (c) gloss.
+      The .sentence wraps these blocks like inline elements.
+      row-gap adds breathing room between wrapped lines.
+    */
+    .sentence {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      row-gap: 1.2rem;
+    }
+
+    .word {
+      display: inline-flex;
+      flex-direction: column;
+    }
+
+    /* (a) Chinese characters */
+    .word .row-a {
+      display: flex;
+    }
+    .word .row-a span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 1.9rem;
+      color: #f0d090;
+      padding: 0.25rem 0.05rem 0.1rem;
+    }
+
+    /* (b) Pinyin */
+    .word .row-b {
+      display: flex;
+    }
+    .word .row-b span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 0.73rem;
+      color: #6ab0f5;
+      padding: 0.05rem 0.05rem 0.3rem;
+    }
+
+    /* (c) Word gloss */
+    .word .row-c {
+      font-size: 0.72rem;
+      text-align: center;
+      color: #7dd87d;
+      padding: 0.25rem 0.1rem;
+      border-top: 1px solid #2d2d2d;
+      border-bottom: 1px solid #2d2d2d;
+      border-right: 1px solid #222;
+      /* min-height keeps punct cells the same height as gloss cells */
+      min-height: 1.55rem;
+    }
+
+    /* Punctuation word-blocks: dimmer char, no pinyin text, no gloss text */
+    .word.punct .row-a span {
+      color: #666;
+      font-size: 1.5rem;
+    }
+
+    /* (d) Full sentence translation */
+    .row-d {
+      padding: 0.6rem 0.2rem 0;
+      font-size: 0.95rem;
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>Three Body Reader — POC 2</h1>
+
+  <!--
+    Sentence 2, Chapter 1:
+    "红色联合"对"四·二八兵团"总部大楼的攻击已持续了两天，
+    他们的旗帜在大楼周围躁动地飘扬着，仿佛渴望干柴的火种。
+  -->
+
+  <div class="row-label">(a) original · (b) pinyin · (c) words</div>
+  <div class="sentence">
+
+    <!-- " -->
+    <div class="word punct">
+      <div class="row-a"><span>&#x201C;</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+    <!-- 红色联合 -->
+    <div class="word">
+      <div class="row-a"><span>红</span><span>色</span><span>联</span><span>合</span></div>
+      <div class="row-b"><span>hóng</span><span>sè</span><span>lián</span><span>hé</span></div>
+      <div class="row-c">"Red Union"</div>
+    </div>
+    <!-- " -->
+    <div class="word punct">
+      <div class="row-a"><span>&#x201D;</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+    <!-- 对 -->
+    <div class="word">
+      <div class="row-a"><span>对</span></div>
+      <div class="row-b"><span>duì</span></div>
+      <div class="row-c">against</div>
+    </div>
+    <!-- " -->
+    <div class="word punct">
+      <div class="row-a"><span>&#x201C;</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+    <!-- 四·二八兵团  (middle dot has no pinyin) -->
+    <div class="word">
+      <div class="row-a"><span>四</span><span>·</span><span>二</span><span>八</span><span>兵</span><span>团</span></div>
+      <div class="row-b"><span>sì</span><span></span><span>èr</span><span>bā</span><span>bīng</span><span>tuán</span></div>
+      <div class="row-c">Apr.28 Corps</div>
+    </div>
+    <!-- " -->
+    <div class="word punct">
+      <div class="row-a"><span>&#x201D;</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+    <!-- 总部 -->
+    <div class="word">
+      <div class="row-a"><span>总</span><span>部</span></div>
+      <div class="row-b"><span>zǒng</span><span>bù</span></div>
+      <div class="row-c">HQ</div>
+    </div>
+    <!-- 大楼 -->
+    <div class="word">
+      <div class="row-a"><span>大</span><span>楼</span></div>
+      <div class="row-b"><span>dà</span><span>lóu</span></div>
+      <div class="row-c">building</div>
+    </div>
+    <!-- 的 -->
+    <div class="word">
+      <div class="row-a"><span>的</span></div>
+      <div class="row-b"><span>de</span></div>
+      <div class="row-c">[poss.]</div>
+    </div>
+    <!-- 攻击 -->
+    <div class="word">
+      <div class="row-a"><span>攻</span><span>击</span></div>
+      <div class="row-b"><span>gōng</span><span>jī</span></div>
+      <div class="row-c">attack</div>
+    </div>
+    <!-- 已 -->
+    <div class="word">
+      <div class="row-a"><span>已</span></div>
+      <div class="row-b"><span>yǐ</span></div>
+      <div class="row-c">already</div>
+    </div>
+    <!-- 持续 -->
+    <div class="word">
+      <div class="row-a"><span>持</span><span>续</span></div>
+      <div class="row-b"><span>chí</span><span>xù</span></div>
+      <div class="row-c">lasted</div>
+    </div>
+    <!-- 了 -->
+    <div class="word">
+      <div class="row-a"><span>了</span></div>
+      <div class="row-b"><span>le</span></div>
+      <div class="row-c">[perf.]</div>
+    </div>
+    <!-- 两天 -->
+    <div class="word">
+      <div class="row-a"><span>两</span><span>天</span></div>
+      <div class="row-b"><span>liǎng</span><span>tiān</span></div>
+      <div class="row-c">two days</div>
+    </div>
+    <!-- ， -->
+    <div class="word punct">
+      <div class="row-a"><span>，</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+
+    <!-- 他们 -->
+    <div class="word">
+      <div class="row-a"><span>他</span><span>们</span></div>
+      <div class="row-b"><span>tā</span><span>men</span></div>
+      <div class="row-c">they</div>
+    </div>
+    <!-- 的 -->
+    <div class="word">
+      <div class="row-a"><span>的</span></div>
+      <div class="row-b"><span>de</span></div>
+      <div class="row-c">[poss.]</div>
+    </div>
+    <!-- 旗帜 -->
+    <div class="word">
+      <div class="row-a"><span>旗</span><span>帜</span></div>
+      <div class="row-b"><span>qí</span><span>zhì</span></div>
+      <div class="row-c">banners</div>
+    </div>
+    <!-- 在 -->
+    <div class="word">
+      <div class="row-a"><span>在</span></div>
+      <div class="row-b"><span>zài</span></div>
+      <div class="row-c">at</div>
+    </div>
+    <!-- 大楼 -->
+    <div class="word">
+      <div class="row-a"><span>大</span><span>楼</span></div>
+      <div class="row-b"><span>dà</span><span>lóu</span></div>
+      <div class="row-c">building</div>
+    </div>
+    <!-- 周围 -->
+    <div class="word">
+      <div class="row-a"><span>周</span><span>围</span></div>
+      <div class="row-b"><span>zhōu</span><span>wéi</span></div>
+      <div class="row-c">surrounding</div>
+    </div>
+    <!-- 躁动地 -->
+    <div class="word">
+      <div class="row-a"><span>躁</span><span>动</span><span>地</span></div>
+      <div class="row-b"><span>zào</span><span>dòng</span><span>de</span></div>
+      <div class="row-c">restlessly</div>
+    </div>
+    <!-- 飘扬着 -->
+    <div class="word">
+      <div class="row-a"><span>飘</span><span>扬</span><span>着</span></div>
+      <div class="row-b"><span>piāo</span><span>yáng</span><span>zhe</span></div>
+      <div class="row-c">fluttering</div>
+    </div>
+    <!-- ， -->
+    <div class="word punct">
+      <div class="row-a"><span>，</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+
+    <!-- 仿佛 -->
+    <div class="word">
+      <div class="row-a"><span>仿</span><span>佛</span></div>
+      <div class="row-b"><span>fǎng</span><span>fú</span></div>
+      <div class="row-c">as if</div>
+    </div>
+    <!-- 渴望 -->
+    <div class="word">
+      <div class="row-a"><span>渴</span><span>望</span></div>
+      <div class="row-b"><span>kě</span><span>wàng</span></div>
+      <div class="row-c">craving</div>
+    </div>
+    <!-- 干柴 -->
+    <div class="word">
+      <div class="row-a"><span>干</span><span>柴</span></div>
+      <div class="row-b"><span>gān</span><span>chái</span></div>
+      <div class="row-c">dry kindling</div>
+    </div>
+    <!-- 的 -->
+    <div class="word">
+      <div class="row-a"><span>的</span></div>
+      <div class="row-b"><span>de</span></div>
+      <div class="row-c">[adj.]</div>
+    </div>
+    <!-- 火种 -->
+    <div class="word">
+      <div class="row-a"><span>火</span><span>种</span></div>
+      <div class="row-b"><span>huǒ</span><span>zhǒng</span></div>
+      <div class="row-c">fire seed</div>
+    </div>
+    <!-- 。 -->
+    <div class="word punct">
+      <div class="row-a"><span>。</span></div>
+      <div class="row-b"><span></span></div>
+      <div class="row-c"></div>
+    </div>
+
+  </div><!-- .sentence -->
+
+  <div class="row-label">(d) translation</div>
+  <div class="row-d">
+    The "Red Union's" attack on the headquarters building of the "April 28th Corps" had already lasted two days;
+    their banners fluttered restlessly around the building, as if craving dry kindling for a fire.
+  </div>
+
+</body>
+</html>

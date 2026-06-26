@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Body Reader — POC 3</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: "Segoe UI", sans-serif;
+      padding: 2rem;
+      max-width: 56rem;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      color: #666;
+      margin-bottom: 2rem;
+      letter-spacing: 0.06em;
+    }
+
+    button {
+      background: #1a1a1a;
+      color: #aaa;
+      border: 1px solid #333;
+      padding: 0.4rem 1.1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border-radius: 3px;
+      margin-bottom: 2rem;
+      letter-spacing: 0.05em;
+    }
+    button:hover { background: #262626; color: #ddd; border-color: #555; }
+    button.playing { color: #e05050; border-color: #553333; background: #1a1212; }
+
+    .row-label {
+      font-size: 0.62rem;
+      color: #444;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 0.5rem 0 0.3rem;
+    }
+
+    .sentence {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      row-gap: 1.2rem;
+    }
+
+    .word {
+      display: inline-flex;
+      flex-direction: column;
+    }
+
+    .word .row-a { display: flex; }
+    .word .row-a span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 1.9rem;
+      color: #f0d090;
+      padding: 0.25rem 0.05rem 0.1rem;
+    }
+
+    .word .row-b { display: flex; }
+    .word .row-b span {
+      width: 2.6rem;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 0.73rem;
+      color: #6ab0f5;
+      padding: 0.05rem 0.05rem 0.3rem;
+      transition: color 0.12s ease;
+    }
+
+    .word .row-c {
+      font-size: 0.72rem;
+      text-align: center;
+      color: #7dd87d;
+      padding: 0.25rem 0.1rem;
+      border-top: 1px solid #2d2d2d;
+      border-bottom: 1px solid #2d2d2d;
+      border-right: 1px solid #222;
+      min-height: 1.55rem;
+    }
+
+    .word.punct .row-a span { color: #666; font-size: 1.5rem; }
+
+    /* TTS active word: pinyin turns red */
+    .word.active .row-b span { color: #e05050; }
+
+    .row-d {
+      padding: 0.6rem 0.2rem 0;
+      font-size: 0.95rem;
+      color: #999;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>Three Body Reader — POC 3</h1>
+
+  <button id="btn">&#x25B6; Read aloud (slow)</button>
+
+  <div class="row-label">(a) original &middot; (b) pinyin &middot; (c) words</div>
+  <div class="sentence" id="sentence"></div>
+
+  <div class="row-label">(d) translation</div>
+  <div class="row-d">
+    The &#x201C;Red Union&#x2019;s&#x201D; attack on the headquarters building of the
+    &#x201C;April 28th Corps&#x201D; had already lasted two days; their banners fluttered
+    restlessly around the building, as if craving dry kindling for a fire.
+  </div>
+
+  <script>
+    const WORDS = [
+      { punct: true, chars: ['“'] },
+      { chars: ['红','色','联','合'], pinyins: ['hóng','sè','lián','hé'], gloss: '“Red Union”' },
+      { punct: true, chars: ['”'] },
+      { chars: ['对'], pinyins: ['duì'], gloss: 'against' },
+      { punct: true, chars: ['“'] },
+      { chars: ['四','·','二','八','兵','团'], pinyins: ['sì','','èr','bā','bīng','tuán'], gloss: 'Apr.28 Corps' },
+      { punct: true, chars: ['”'] },
+      { chars: ['总','部'], pinyins: ['zǒng','bù'], gloss: 'HQ' },
+      { chars: ['大','楼'], pinyins: ['dà','lóu'], gloss: 'building' },
+      { chars: ['的'], pinyins: ['de'], gloss: '[poss.]' },
+      { chars: ['攻','击'], pinyins: ['gōng','jī'], gloss: 'attack' },
+      { chars: ['已'], pinyins: ['yǐ'], gloss: 'already' },
+      { chars: ['持','续'], pinyins: ['chí','xù'], gloss: 'lasted' },
+      { chars: ['了'], pinyins: ['le'], gloss: '[perf.]' },
+      { chars: ['两','天'], pinyins: ['liǎng','tiān'], gloss: 'two days' },
+      { punct: true, chars: ['，'] },
+      { chars: ['他','们'], pinyins: ['tā','men'], gloss: 'they' },
+      { chars: ['的'], pinyins: ['de'], gloss: '[poss.]' },
+      { chars: ['旗','帜'], pinyins: ['qí','zhì'], gloss: 'banners' },
+      { chars: ['在'], pinyins: ['zài'], gloss: 'at' },
+      { chars: ['大','楼'], pinyins: ['dà','lóu'], gloss: 'building' },
+      { chars: ['周','围'], pinyins: ['zhōu','wéi'], gloss: 'surrounding' },
+      { chars: ['躁','动','地'], pinyins: ['zào','dòng','de'], gloss: 'restlessly' },
+      { chars: ['飘','扬','着'], pinyins: ['piāo','yáng','zhe'], gloss: 'fluttering' },
+      { punct: true, chars: ['，'] },
+      { chars: ['仿','佛'], pinyins: ['fǎng','fú'], gloss: 'as if' },
+      { chars: ['渴','望'], pinyins: ['kě','wàng'], gloss: 'craving' },
+      { chars: ['干','柴'], pinyins: ['gān','chái'], gloss: 'dry kindling' },
+      { chars: ['的'], pinyins: ['de'], gloss: '[adj.]' },
+      { chars: ['火','种'], pinyins: ['huǒ','zhǒng'], gloss: 'fire seed' },
+      { punct: true, chars: ['。'] },
+    ];
+
+    // Build the TTS string and record each word's [start, end) range within it
+    let ttsText = '';
+    for (const w of WORDS) {
+      w.start = ttsText.length;
+      ttsText += w.chars.join('');
+      w.end = ttsText.length;
+    }
+
+    // Render word-blocks into the DOM
+    const container = document.getElementById('sentence');
+    for (const w of WORDS) {
+      const div = document.createElement('div');
+      div.className = 'word' + (w.punct ? ' punct' : '');
+
+      const rowA = document.createElement('div');
+      rowA.className = 'row-a';
+      for (const ch of w.chars) {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        rowA.appendChild(s);
+      }
+
+      const rowB = document.createElement('div');
+      rowB.className = 'row-b';
+      const pinyins = w.pinyins || w.chars.map(() => '');
+      for (const py of pinyins) {
+        const s = document.createElement('span');
+        s.textContent = py;
+        rowB.appendChild(s);
+      }
+
+      const rowC = document.createElement('div');
+      rowC.className = 'row-c';
+      rowC.textContent = w.gloss || '';
+
+      div.appendChild(rowA);
+      div.appendChild(rowB);
+      div.appendChild(rowC);
+      container.appendChild(div);
+      w.el = div;
+    }
+
+    // Cache voices as soon as the browser has them
+    let voices = speechSynthesis.getVoices();
+    speechSynthesis.addEventListener('voiceschanged', () => {
+      voices = speechSynthesis.getVoices();
+    });
+
+    function clearActive() {
+      for (const w of WORDS) w.el.classList.remove('active');
+    }
+
+    const btn = document.getElementById('btn');
+    let playing = false;
+
+    btn.addEventListener('click', () => {
+      if (playing) {
+        speechSynthesis.cancel();
+        // onend will handle cleanup
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(ttsText);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.3;
+
+      const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+      if (zhVoice) utterance.voice = zhVoice;
+
+      utterance.onstart = () => {
+        playing = true;
+        btn.textContent = '■ Stop';
+        btn.classList.add('playing');
+      };
+
+      utterance.onboundary = (e) => {
+        if (e.name !== 'word') return;
+        clearActive();
+        const w = WORDS.find(w => e.charIndex >= w.start && e.charIndex < w.end);
+        if (w) w.el.classList.add('active');
+      };
+
+      utterance.onend = () => {
+        playing = false;
+        btn.textContent = '▶ Read aloud (slow)';
+        btn.classList.remove('playing');
+        clearActive();
+      };
+
+      speechSynthesis.speak(utterance);
+    });
+  </script>
+</body>
+</html>
