@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Three Body Reader — POC 9</title>
+  <script src="charstats.js"></script><!-- optional; book-tab stats; generate with charstats.py -->
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -48,9 +49,9 @@
 
     .mode-slider { display: flex; align-items: center; gap: 0.4rem; }
     .mode-lbl { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
-    .ml-zh { font-size: 0.9rem;  color: #f0d090; }
-    .ml-py { font-size: 0.48rem; color: #6ab0f5; }
-    .ml-en { font-size: 0.48rem; color: #7dd87d; }
+    .ml-zh { font-size: 1.3rem;  color: #f0d090; }
+    .ml-py { font-size: 0.78rem; color: #6ab0f5; }
+    .ml-en { font-size: 0.68rem; color: #7dd87d; }
     .mode-slider input[type="range"] {
       -webkit-appearance: none; width: 48px; height: 3px;
       background: #383838; border-radius: 2px; outline: none; cursor: pointer;
@@ -101,6 +102,7 @@
       padding: 0.25rem 0.05rem 0.1rem; cursor: default;
     }
     .word .row-a span.highlight { color: #e05050; }
+    .word.word-pinned .row-a span { color: #e05050; }
 
     .word .row-b { display: flex; user-select: none; }
     .word .row-b span {
@@ -118,6 +120,84 @@
     .word:not(.punct) .row-c { cursor: pointer; }
     .word.punct .row-a span { color: #666; font-size: 1.5rem; }
     .row-d { padding: 0.6rem 0.2rem 0; font-size: 0.95rem; color: #999; font-style: italic; }
+
+    /* ── Glossary modal ── */
+    .g-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .g-overlay.open { display: flex; }
+    .g-modal {
+      background: #161616; border: 1px solid #2e2e2e; border-radius: 4px;
+      width: 88vw; max-width: 960px; height: 82vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .g-head {
+      display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+      padding: 0.55rem 0.9rem; border-bottom: 1px solid #222; flex-shrink: 0;
+    }
+    .g-title { font-size: 0.7rem; color: #444; letter-spacing: 0.07em; flex: 1; }
+    .g-filters { display: flex; gap: 0.35rem; }
+    .g-filter {
+      background: #1a1a1a; border: 1px solid #252525; cursor: pointer; border-radius: 3px;
+      padding: 0.2rem 0.5rem; display: flex; flex-direction: column; align-items: center; line-height: 1.25;
+    }
+    .g-filter .ml-zh { font-size: 1.1rem;  color: #484848; }
+    .g-filter .ml-py { font-size: 0.72rem; color: #2d5070; }
+    .g-filter .ml-en { font-size: 0.64rem; color: #2d502d; }
+    .g-filter.active .ml-zh { color: #f0d090; }
+    .g-filter.active .ml-py { color: #6ab0f5; }
+    .g-filter.active .ml-en { color: #7dd87d; }
+    .g-filter:hover .ml-zh { color: #bbb; }
+    #g-close {
+      background: none; border: none; color: #3a3a3a; font-size: 1.1rem;
+      cursor: pointer; padding: 0.1rem 0.35rem; line-height: 1;
+    }
+    #g-close:hover { color: #bbb; }
+    .g-stats {
+      padding: 0.28rem 0.9rem; font-size: 0.63rem; color: #333;
+      border-bottom: 1px solid #1c1c1c; flex-shrink: 0;
+    }
+    .g-body { overflow-y: auto; flex: 1; }
+    .g-table { width: 100%; border-collapse: collapse; }
+    .g-table tr:hover td { background: #1b1b1b; }
+    @keyframes g-flash { 0% { background: #2e2a10; } 100% { background: transparent; } }
+    .g-table tr.g-highlight td { animation: g-flash 1.8s ease-out forwards; }
+    .g-table td { padding: 0.22rem 0.5rem; border-bottom: 1px solid #1c1c1c; vertical-align: middle; }
+    .g-td-rank { color: #2c2c2c; font-size: 0.6rem; text-align: right; width: 2.2rem; }
+    .g-td-ch   { font-size: 1.9rem; color: #f0d090; width: 2.6rem; text-align: center; line-height: 1; padding: 0.1rem 0.5rem; }
+    .g-td-py   { font-size: 0.73rem; color: #6ab0f5; width: 4.5rem; }
+    .g-td-n    { font-size: 0.6rem; color: #333; text-align: right; width: 2.2rem; }
+    .g-td-kn   { width: 2rem; text-align: center; }
+    .g-kn-btn  {
+      background: none; border: 1px solid #242424; color: #2e2e2e;
+      font-size: 0.7rem; border-radius: 2px; cursor: pointer; padding: 0.05rem 0.3rem; line-height: 1.4;
+    }
+    .g-kn-btn.on { color: #7dd87d; border-color: #385038; }
+    .g-kn-btn:hover { border-color: #555; color: #aaa; }
+    .g-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; padding: 0.1rem 0; }
+    .g-chip {
+      display: inline-flex; flex-direction: column; align-items: center;
+      border: 1px solid #202020; border-radius: 2px; padding: 0.08rem 0.32rem; cursor: default;
+    }
+    .g-chip { cursor: pointer; }
+    .g-chip:hover { border-color: #3a3a3a; background: #1c1c1c; }
+    .g-chip .wc-zh { font-size: 1.9rem;  color: #f0d090; line-height: 1.3; }
+    .g-chip .wc-py { font-size: 0.73rem; color: #6ab0f5; line-height: 1.2; }
+    .g-chip .wc-en { font-size: 0.72rem; color: #7dd87d; line-height: 1.2; }
+    #btn-glossary {
+      background: #1a1a1a; border: 1px solid #333; cursor: pointer;
+      border-radius: 3px; padding: 0.2rem 0.5rem; line-height: 1;
+    }
+    #btn-glossary:hover { background: #262626; border-color: #555; }
+    .g-actions { display: flex; gap: 0.35rem; align-items: center; }
+    .g-act-btn {
+      background: #1a1a1a; border: 1px solid #252525; color: #444;
+      font-size: 0.65rem; cursor: pointer; border-radius: 2px; padding: 0.2rem 0.5rem; letter-spacing: 0.04em;
+    }
+    .g-act-btn:hover { color: #aaa; border-color: #555; }
+    .g-act-btn.danger:hover { color: #c05050; border-color: #7a2a2a; }
   </style>
 </head>
 <body>
@@ -137,7 +217,7 @@
       <span class="nav-sep"></span>
       <label class="mode-slider">
         <span class="mode-lbl"><span class="ml-zh">频</span><span class="ml-py">pín</span><span class="ml-en">freq</span></span>
-        <input type="range" id="sl-freq" min="0" max="4" step="0.01" value="2">
+        <input type="range" id="sl-freq" min="0" max="4" step="0.01" value="4">
       </label>
       <label class="mode-slider">
         <span class="mode-lbl"><span class="ml-zh">拼</span><span class="ml-py">pīn</span><span class="ml-en">pinyin</span></span>
@@ -147,8 +227,43 @@
         <span class="mode-lbl"><span class="ml-zh">词</span><span class="ml-py">cí</span><span class="ml-en">gloss</span></span>
         <input type="range" id="sl-gloss" min="0" max="2" step="1" value="1">
       </label>
+      <button id="btn-glossary">
+        <span class="mode-lbl"><span class="ml-zh">汇</span><span class="ml-py">huì</span><span class="ml-en">vocab</span></span>
+      </button>
     </div>
     <div id="root"></div>
+  </div>
+
+  <!-- Glossary modal -->
+  <div id="g-overlay" class="g-overlay">
+    <div class="g-modal">
+      <div class="g-head">
+        <span class="g-title">词汇表 · vocabulary</span>
+        <div class="g-filters">
+          <button class="g-filter" data-f="known">
+            <span class="ml-zh">熟</span><span class="ml-py">shú</span><span class="ml-en">known</span>
+          </button>
+          <button class="g-filter active" data-f="paragraph">
+            <span class="ml-zh">段</span><span class="ml-py">duàn</span><span class="ml-en">para</span>
+          </button>
+          <button class="g-filter" data-f="chapter">
+            <span class="ml-zh">章</span><span class="ml-py">zhāng</span><span class="ml-en">chapter</span>
+          </button>
+          <button class="g-filter" data-f="book">
+            <span class="ml-zh">书</span><span class="ml-py">shū</span><span class="ml-en">book</span>
+          </button>
+        </div>
+        <div class="g-actions">
+          <button id="g-download" class="g-act-btn">↓ save known</button>
+          <button id="g-load-trigger" class="g-act-btn">↑ load known</button>
+          <input type="file" id="g-load-input" accept=".json" style="display:none">
+          <button id="g-clear" class="g-act-btn danger">✕ clear all</button>
+        </div>
+        <button id="g-close">✕</button>
+      </div>
+      <div id="g-stats" class="g-stats"></div>
+      <div id="g-body" class="g-body"></div>
+    </div>
   </div>
 
   <script>
@@ -201,29 +316,37 @@
     }
 
     // ── Fade persistence ─────────────────────────────────────────────────────
-    const fadedPinyin       = new Set(JSON.parse(localStorage.getItem('faded-pinyin') || '[]'));
-    const fadedGloss        = new Set(JSON.parse(localStorage.getItem('faded-gloss')  || '[]'));
+    // Keys are Chinese characters/words (not pinyin/English) so data survives pipeline reruns
+    function migrateKey(newKey, ...oldKeys) {
+      if (localStorage.getItem(newKey)) return;
+      for (const k of oldKeys) { const v = localStorage.getItem(k); if (v) { localStorage.setItem(newKey, v); localStorage.removeItem(k); return; } }
+    }
+    migrateKey('faded-chars', 'faded-pinyin');
+    migrateKey('faded-words', 'faded-gloss');
+    const fadedChars        = new Set(JSON.parse(localStorage.getItem('faded-chars') || '[]'));
+    const fadedWords        = new Set(JSON.parse(localStorage.getItem('faded-words') || '[]'));
     const pinyinSpansByChar = new Map();
     const wordsByKey        = new Map();
+    let pinnedWordKey      = null;
+    let clearPinListener   = null;
 
     function saveFaded() {
-      localStorage.setItem('faded-pinyin', JSON.stringify([...fadedPinyin]));
-      localStorage.setItem('faded-gloss',  JSON.stringify([...fadedGloss]));
+      localStorage.setItem('faded-chars', JSON.stringify([...fadedChars]));
+      localStorage.setItem('faded-words', JSON.stringify([...fadedWords]));
     }
     function applyFaded() {
       for (const [ch, spans] of pinyinSpansByChar)
-        for (const s of spans) s.classList.toggle('faded', fadedPinyin.has(ch));
+        for (const s of spans) s.classList.toggle('faded', fadedChars.has(ch));
       for (const [key, divs] of wordsByKey)
-        for (const div of divs) div.classList.toggle('faded-gloss', fadedGloss.has(key));
+        for (const div of divs) div.classList.toggle('faded-gloss', fadedWords.has(key));
     }
 
     // ── Visibility modes ──────────────────────────────────────────────────────
-    // slider 0=hide all, 1=hide known, 2=show all (default)
+    // slider 0=hide all, 1=½ hide known, 2=show all · sliders reset on every page load
     function loadInt(key, def) { const v = parseInt(localStorage.getItem(key), 10); return isNaN(v) ? def : v; }
-    let pinyinMode = Math.min(2, Math.max(0, loadInt('pinyin-mode', 2)));
-    let glossMode  = Math.min(2, Math.max(0, loadInt('gloss-mode',  2)));
-    const _fs = parseFloat(localStorage.getItem('freq-slider'));
-    let freqSlider = isNaN(_fs) ? 2 : Math.min(4, Math.max(0, _fs));
+    let pinyinMode = 1;   // ½: known pinyin dimmed
+    let glossMode  = 1;   // ½: known glosses dimmed
+    let freqSlider = 4;   // rightmost: rarest chars highlighted
 
     function applyModes() {
       const b = document.body;
@@ -240,16 +363,13 @@
     }
 
     document.getElementById('sl-pinyin').addEventListener('input', e => {
-      pinyinMode = parseInt(e.target.value, 10);
-      localStorage.setItem('pinyin-mode', pinyinMode); applyModes();
+      pinyinMode = parseInt(e.target.value, 10); applyModes();
     });
     document.getElementById('sl-gloss').addEventListener('input', e => {
-      glossMode = parseInt(e.target.value, 10);
-      localStorage.setItem('gloss-mode', glossMode); applyModes();
+      glossMode = parseInt(e.target.value, 10); applyModes();
     });
     document.getElementById('sl-freq').addEventListener('input', e => {
-      freqSlider = parseFloat(e.target.value);
-      localStorage.setItem('freq-slider', freqSlider); applyFreqColors();
+      freqSlider = parseFloat(e.target.value); applyFreqColors();
     });
 
     // ── Character frequency coloring ─────────────────────────────────────────
@@ -257,6 +377,17 @@
     // Color is a Gaussian spotlight (sigma=1 decade) centered on the selected rank.
     const charFreq = new Map();
     const charRank = new Map();
+
+    // Book-wide stats from charstats.js (window.CHARSTATS = {ch: count, ...} sorted desc)
+    const bookCharFreq = new Map();
+    const bookCharRank = new Map();
+    if (window.CHARSTATS) {
+      let rank = 1;
+      for (const [ch, count] of Object.entries(window.CHARSTATS)) {
+        bookCharFreq.set(ch, count);
+        bookCharRank.set(ch, rank++);
+      }
+    }
 
     function buildCharFreq(data) {
       charFreq.clear();
@@ -310,6 +441,7 @@
         const rowA = document.createElement('div'); rowA.className = 'row-a';
         for (const ch of w.chars) {
           const s = document.createElement('span'); s.textContent = ch;
+          if (!w.punct) s.addEventListener('dblclick', () => openGlossaryForChar(ch));
           rowA.appendChild(s);
         }
 
@@ -321,7 +453,7 @@
             if (!pinyinSpansByChar.has(ch)) pinyinSpansByChar.set(ch, []);
             pinyinSpansByChar.get(ch).push(s);
             s.addEventListener('click', () => {
-              fadedPinyin.has(ch) ? fadedPinyin.delete(ch) : fadedPinyin.add(ch);
+              fadedChars.has(ch) ? fadedChars.delete(ch) : fadedChars.add(ch);
               saveFaded(); applyFaded();
             });
           }
@@ -338,7 +470,7 @@
           if (!wordsByKey.has(wordKey)) wordsByKey.set(wordKey, []);
           wordsByKey.get(wordKey).push(div);
           rowC.addEventListener('click', () => {
-            fadedGloss.has(wordKey) ? fadedGloss.delete(wordKey) : fadedGloss.add(wordKey);
+            fadedWords.has(wordKey) ? fadedWords.delete(wordKey) : fadedWords.add(wordKey);
             saveFaded(); applyFaded();
           });
         }
@@ -358,7 +490,20 @@
 
     function showParagraph(index) {
       stopCurrent();
+      clearWordPin();
       pinyinSpansByChar.clear(); wordsByKey.clear();
+      paraChars.clear();
+      paraWords.clear();
+      paraCharFreq.clear();
+      for (const s of PARAGRAPHS_DATA[index].sentences)
+        for (const w of s.words)
+          if (!w.punct) {
+            for (const ch of w.chars) {
+              paraChars.add(ch);
+              paraCharFreq.set(ch, (paraCharFreq.get(ch) || 0) + 1);
+            }
+            paraWords.add(w.chars.join(''));
+          }
       const root = document.getElementById('root');
       root.innerHTML = '';
 
@@ -392,6 +537,7 @@
     function initReader(data) {
       PARAGRAPHS_DATA = data;
       buildCharFreq(data);
+      buildGlossary(data);
       document.getElementById('loader').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
 
@@ -410,6 +556,228 @@
 
       showParagraph(cur);
     }
+
+    // ── Glossary ─────────────────────────────────────────────────────────────
+    const charToWords = new Map();
+    const paraChars    = new Set();
+    const paraWords    = new Set();
+    const paraCharFreq = new Map();  // char→count within current paragraph
+    let glossaryFilter = 'paragraph';
+    let knownSnapshot  = null;  // frozen set for sticky known-tab display
+
+    function buildGlossary(data) {
+      charToWords.clear();
+      const seen = new Set();
+      for (const para of data)
+        for (const sent of para.sentences)
+          for (const w of sent.words)
+            if (!w.punct) {
+              const key = w.chars.join('');
+              if (!seen.has(key)) {
+                seen.add(key);
+                for (const ch of w.chars) {
+                  if (!charToWords.has(ch)) charToWords.set(ch, []);
+                  charToWords.get(ch).push({ chars: w.chars, pinyins: w.pinyins || [], gloss: w.gloss || '' });
+                }
+              }
+            }
+    }
+
+    function renderGlossary() {
+      const all = [...charRank.entries()].sort((a, b) => a[1] - b[1]).map(([ch]) => ch);
+      // known tab: capture snapshot on first render; rows stay until tab switch/reopen
+      if (glossaryFilter === 'known') {
+        if (!knownSnapshot) knownSnapshot = new Set(fadedChars);
+      } else {
+        knownSnapshot = null;
+      }
+      const rows = all.filter(ch => {
+        if (glossaryFilter === 'known')     return knownSnapshot.has(ch);
+        if (glossaryFilter === 'paragraph') return paraChars.has(ch);
+        if (glossaryFilter === 'chapter')   return true;
+        if (glossaryFilter === 'book')      return true;
+        return true;
+      });
+
+      const knownCount = all.filter(ch => fadedChars.has(ch)).length;
+      document.getElementById('g-stats').textContent =
+        `${all.length} chars in chapter · ${knownCount} known · ${paraChars.size} in paragraph · showing ${rows.length}`;
+
+      const body = document.getElementById('g-body');
+      body.innerHTML = '';
+      if (!rows.length) { body.style.padding = '1rem'; body.textContent = '—'; return; }
+      body.style.padding = '';
+
+      const tbl = document.createElement('table');
+      tbl.className = 'g-table';
+
+      const useParaFreq = glossaryFilter === 'paragraph';
+      const useBookFreq = glossaryFilter === 'book' && bookCharFreq.size > 0;
+      const omitCount   = glossaryFilter === 'known';
+
+      if (useParaFreq)
+        rows.sort((a, b) => (paraCharFreq.get(b) || 0) - (paraCharFreq.get(a) || 0));
+      else if (useBookFreq)
+        rows.sort((a, b) => (bookCharRank.get(a) || 99999) - (bookCharRank.get(b) || 99999));
+
+      for (let ri = 0; ri < rows.length; ri++) {
+        const ch = rows[ri];
+        const words = charToWords.get(ch) || [];
+
+        // Collect unique pinyins for this char across all words it appears in
+        const pySet = new Set();
+        for (const w of words) {
+          const i = w.chars.indexOf(ch);
+          if (i >= 0 && w.pinyins[i]) pySet.add(w.pinyins[i]);
+        }
+
+        const tr = document.createElement('tr');
+        tr.dataset.ch = ch;
+
+        const tdRank = document.createElement('td'); tdRank.className = 'g-td-rank';
+        tdRank.textContent = useParaFreq ? (ri + 1)
+                           : useBookFreq ? (bookCharRank.get(ch) || '?')
+                           : charRank.get(ch);
+
+        const tdCh = document.createElement('td'); tdCh.className = 'g-td-ch';
+        tdCh.textContent = ch;
+
+        const tdPy = document.createElement('td'); tdPy.className = 'g-td-py';
+        tdPy.textContent = [...pySet].join(' / ');
+
+        const tdN = document.createElement('td'); tdN.className = 'g-td-n';
+        tdN.textContent = omitCount    ? ''
+                        : useParaFreq ? (paraCharFreq.get(ch) || '')
+                        : useBookFreq ? (bookCharFreq.get(ch) || '')
+                        : charFreq.get(ch);
+
+        const tdKn = document.createElement('td'); tdKn.className = 'g-td-kn';
+        const kb = document.createElement('button'); kb.className = 'g-kn-btn';
+        const isKnown = fadedChars.has(ch);
+        kb.textContent = isKnown ? '✓' : '·';
+        if (isKnown) kb.classList.add('on');
+        kb.addEventListener('click', () => {
+          fadedChars.has(ch) ? fadedChars.delete(ch) : fadedChars.add(ch);
+          saveFaded(); applyFaded(); renderGlossary();
+        });
+        tdKn.appendChild(kb);
+
+        const tdW = document.createElement('td');
+        const chips = document.createElement('div'); chips.className = 'g-chips';
+        const paraWordObjs = words.filter(w => paraWords.has(w.chars.join('')));
+        for (const w of paraWordObjs.slice(0, 8)) {
+          const wKey = w.chars.join('');
+          const chip = document.createElement('div'); chip.className = 'g-chip';
+          const zh = document.createElement('div'); zh.className = 'wc-zh'; zh.textContent = wKey;
+          const py = document.createElement('div'); py.className = 'wc-py'; py.textContent = w.pinyins.join('·');
+          const en = document.createElement('div'); en.className = 'wc-en'; en.textContent = w.gloss;
+          chip.appendChild(zh); chip.appendChild(py); chip.appendChild(en);
+          chip.addEventListener('dblclick', e => {
+            e.stopPropagation();  // don't let this bubble to the document click-to-clear
+            closeGlossary();
+            pinWord(wKey);
+          });
+          chips.appendChild(chip);
+        }
+        tdW.appendChild(chips);
+
+        tr.appendChild(tdRank); tr.appendChild(tdCh); tr.appendChild(tdPy);
+        tr.appendChild(tdN);    tr.appendChild(tdKn); tr.appendChild(tdW);
+        tbl.appendChild(tr);
+      }
+      body.appendChild(tbl);
+    }
+
+    document.getElementById('btn-glossary').addEventListener('click', () => {
+      document.getElementById('g-overlay').classList.add('open');
+      renderGlossary();
+    });
+    function clearWordPin() {
+      if (clearPinListener) {
+        document.removeEventListener('click', clearPinListener);
+        clearPinListener = null;
+      }
+      for (const div of (wordsByKey.get(pinnedWordKey) || []))
+        div.classList.remove('word-pinned');
+      pinnedWordKey = null;
+    }
+
+    function pinWord(wordKey) {
+      clearWordPin();
+      pinnedWordKey = wordKey;
+      const divs = wordsByKey.get(wordKey) || [];
+      for (const div of divs) div.classList.add('word-pinned');
+      if (divs[0]) divs[0].scrollIntoView({ block: 'center' });
+      clearPinListener = () => clearWordPin();
+      document.addEventListener('click', clearPinListener, { once: true });
+    }
+
+    function closeGlossary() {
+      knownSnapshot = null;
+      document.getElementById('g-overlay').classList.remove('open');
+    }
+    document.getElementById('g-close').addEventListener('click', closeGlossary);
+    document.getElementById('g-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('g-overlay')) closeGlossary();
+    });
+    document.querySelectorAll('.g-filter').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.g-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      glossaryFilter = btn.dataset.f;
+      renderGlossary();
+    }));
+
+    function openGlossaryForChar(ch) {
+      glossaryFilter = 'paragraph';
+      document.querySelectorAll('.g-filter').forEach(b =>
+        b.classList.toggle('active', b.dataset.f === 'paragraph'));
+      document.getElementById('g-overlay').classList.add('open');
+      renderGlossary();
+      const row = document.querySelector('#g-body tr[data-ch="' + ch + '"]');
+      if (row) {
+        row.scrollIntoView({ block: 'center' });
+        row.classList.add('g-highlight');
+        setTimeout(() => row.classList.remove('g-highlight'), 1800);
+      }
+    }
+
+    // ── Glossary actions ─────────────────────────────────────────────────────
+    document.getElementById('g-download').addEventListener('click', () => {
+      const payload = {
+        chars: [...fadedChars].sort(),
+        words: [...fadedWords].sort()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'known.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    document.getElementById('g-load-trigger').addEventListener('click', () =>
+      document.getElementById('g-load-input').click());
+    document.getElementById('g-load-input').addEventListener('change', function () {
+      const file = this.files[0]; if (!file) return;
+      const fr = new FileReader();
+      fr.onload = e => {
+        try {
+          const data = JSON.parse(e.target.result);
+          // Support new {chars,words}, legacy {pinyin,gloss}, and bare array (pinyin/chars only)
+          const charsArr = Array.isArray(data) ? data : (data.chars || data.pinyin || []);
+          const wordsArr = Array.isArray(data) ? []   : (data.words || data.gloss  || []);
+          fadedChars.clear();
+          for (const ch of charsArr) if (typeof ch === 'string') fadedChars.add(ch);
+          fadedWords.clear();
+          for (const w of wordsArr) if (typeof w === 'string') fadedWords.add(w);
+          saveFaded(); applyFaded(); renderGlossary();
+        } catch (ex) { alert('Could not load file: ' + ex.message); }
+      };
+      fr.readAsText(file); this.value = '';
+    });
+    document.getElementById('g-clear').addEventListener('click', () => {
+      if (!confirm('Clear all known characters and words?')) return;
+      fadedChars.clear(); fadedWords.clear();
+      saveFaded(); applyFaded(); renderGlossary();
+    });
 
     // Apply persisted modes immediately (before data loads)
     applyModes();

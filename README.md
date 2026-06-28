@@ -18,8 +18,9 @@ Everything runs client-side; no server is needed.
 | `poc1.html` | Hard-coded proof of concept — single sentence, 4-row layout |
 | `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
 | `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
-| `poc9.html` | poc8 + 3-mode pinyin/gloss sliders and sigmoidal log-scale frequency coloring |
+| `poc9.html` | poc8 + pinyin/gloss sliders, log-scale frequency coloring, vocabulary glossary popup |
 | `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` via jieba + pypinyin + Qwen2.5:14b |
+| `charstats.py` | Extracts book-wide CJK character frequencies from the EPUB; outputs `charstats.js` |
 
 ## Goals
 
@@ -42,6 +43,13 @@ Everything runs client-side; no server is needed.
 - Qwen2.5:14b is called once per sentence, returning both (c) word glosses and (d) translation
   in one JSON response so the two rows agree on idioms (e.g. 心急如焚 → "heart burning").
 - Output: `window.CHAPTERX = [{sentences: [{translation, words: [{chars, pinyins, gloss}]}]}]`.
+
+### TODO
+- Some source sentences are very long (e.g. paragraph 3, sentence 1 of chapter 1). The English
+  translation sometimes contains internal `.`, `;`, or `...` that suggest natural split points. It may be
+  possible to break these at matching Chinese punctuation (。；), but only when the English
+  punctuation position aligns with a Chinese clause boundary — otherwise the word/gloss arrays
+  would no longer correspond to a single coherent sentence.
 
 ### Handling imperfect Qwen output
 - Qwen is asked for `{"glosses": [{"seg": word, "gloss": "…"}, …], "translation": "…"}`.
