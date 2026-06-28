@@ -1,57 +1,63 @@
 # Three Body Reader
 
-## Important agent instructions
+A Chinese language learning reader for 《三体》. Each sentence is shown in 4 rows:
+(a) original Chinese, (b) per-character pinyin, (c) per-word English gloss, (d) full translation.
 
-Do not commit the data in "example-data", but feel free to add stuff there during experimentation.
+## Workflow
 
-## Goals
-
-- Web app that runs on both phone and laptop
-- Read local Chinese ebook files in EPUB format
-- Runs entirely client-side, hostable on GitHub Pages or similar static hosts
-- Each sentence will be displayed in 4 ways on top of each other: (a) original chinese, (b) pinyin [aligned with the chinese characters], (c) [segmentation and] translation of each word into english [also aligned with the first two rows], (d) [somewhat literal] translation of the whole sentence into english.
-- The user can click an english word to hide it and all its occurences throughout the book. The user can click the empty space to reveal the english word again. The user can also click pinyin to hide/show it in a similar way.
-- The user can toggle whether to color chinese characters and words by their frequency of appearance either in Chinese at large or statistically in the current book.
-- The user can ask for the whole sentence of pinyin to be read at slow or medium pace, and the color of the pinyin syllables will flash through in a different color as the audio progresses.
+Run `pipeline.ipynb` in Google Colab (Runtime → T4 GPU) to process the EPUB and produce a
+`chapterN.js` data file. The notebook prompts for the EPUB upload first, then installs
+dependencies, starts Ollama, and runs Qwen2.5:14b over every sentence. When done, it downloads
+the JS file. Open `poc8.html` in Chrome, click "Choose file…", and select the downloaded `.js`.
+Everything runs client-side; no server is needed.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `poc.html` | Hard-coded proof of concept for the 4-row CSS grid layout (single sentence) |
-| `poc2.html` | Same layout but with line-wrapping; uses flex word-blocks instead of a single grid |
-| `poc3.html` | Adds TTS via the Web Speech API (single sentence, slow rate) |
-| `poc4.html` | Multiple sentences loaded from an external data file; per-sentence TTS buttons |
-| `poc5.html` | Adds hover highlight: mousing over a character turns all occurrences red |
-| `poc6.html` | Adds click-to-fade on (b) and (c); faded state persisted in `localStorage` |
-| `poc7.html` | Paragraph navigation (prev/next); first 3 paragraphs of chapter 1 |
-| `example-data/sentences-poc4.js` | Sentence data for poc4–poc6 (not committed) |
-| `example-data/paragraphs-poc7.js` | Paragraph data for poc7 — 3 paragraphs, 11 sentences (not committed) |
+| `poc1.html` | Hard-coded proof of concept — single sentence, 4-row layout |
+| `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
+| `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
+| `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` via jieba + pypinyin + Qwen2.5:14b |
+
+## Goals
+
+- [ ] Web app that runs on both phone and laptop — laptop works; phone blocked: iOS forbids
+      opening `file://` URLs in the browser entirely (unrelated to the file picker mechanism)
+- [~] Read local EPUB files — pipeline processes the EPUB; next step is (a)+(b)-only mode
+      (pypinyin + jieba, no Qwen) so the EPUB can be loaded with a much simpler pipeline
+- [ ] Hostable on GitHub Pages — reader HTML is static; hosting of book data is not planned
+- [x] 4-row sentence display (a/b/c/d) with character- and word-level alignment
+- [x] Click to hide/show pinyin and English glosses; faded state persisted in `localStorage`
+- [ ] Color characters/words by frequency — likely next; character counts available from charstats.py
+- [~] TTS with syllable highlighting — audio works; syllable sync on hold (no reliable
+      cross-platform `onboundary` support in browser speech APIs)
 
 ## Technical notes
 
+### EPUB pipeline
+- jieba segments Chinese text into words; pypinyin provides tone-marked pinyin per character.
+- CC-CEDICT (~121 k entries) is downloaded as an offline fallback gloss dictionary.
+- Qwen2.5:14b is called once per sentence, returning both (c) word glosses and (d) translation
+  in one JSON response so the two rows agree on idioms (e.g. 心急如焚 → "heart burning").
+- Output: `window.CHAPTERX = [{sentences: [{translation, words: [{chars, pinyins, gloss}]}]}]`.
+
+### Handling imperfect Qwen output
+- Qwen is asked for `{"glosses": [{"seg": word, "gloss": "…"}, …], "translation": "…"}`.
+- Count mismatches (Qwen merging or splitting jieba segments) are resolved by greedy
+  left-to-right alignment with lookahead: only unmatched segments fall back to CC-CEDICT.
+- JSON parse failures keep Qwen's translation but substitute CC-CEDICT for all glosses.
+- Common structural particles (的, 了, 着 …) are given fixed shorthand glosses ([poss.] etc.)
+  via prompt instruction to avoid verbose CC-CEDICT entries.
+
+### Reader (poc8.html)
+- Data loaded via `<input type="file">` + `FileReader` + `eval()` — works over `file://`.
+- Each word is a `display: flex; flex-direction: column` block; the sentence container uses
+  `flex-wrap: wrap` so word-blocks (all three rows) wrap together.
+- TTS via Web Speech API; `onboundary` events drive per-syllable highlight (Linux: audio only).
+- Click-to-fade stores faded sets in `localStorage` keyed by character (pinyin) and word (gloss).
+- Paragraph position persists in `localStorage['paragraph-index']` and is restored on load.
+
 ### EPUB structure
-- EPUB files are ZIP archives; `unzip -p` extracts a named entry to stdout.
-- Chapter 1 content lives in `EPUB/index_split_006.html` inside the archive.
-- Python strips HTML tags with regex and normalises whitespace between paragraphs.
-- Reading order and chapter structure are declared in `EPUB/content.opf`.
-
-### Layout (poc2+)
-- Each word is a `flex-column` block containing rows (a), (b), (c) stacked vertically.
-- The sentence container is `display: flex; flex-wrap: wrap`, so word-blocks wrap as a unit — rows (a)/(b)/(c) always stay aligned with each other.
-- `row-gap` on the container adds breathing room between wrapped lines.
-- All files work via `file://` in Chrome: no ES modules, no `fetch()` of relative paths. External data is loaded via `<script src>` which works over `file://`.
-
-### TTS (poc3+)
-- Uses the browser's built-in Web Speech API (`SpeechSynthesisUtterance`), no library needed.
-- `onboundary` events carry a `charIndex` mapped back to word-blocks for syllable highlighting.
-- On Linux, Chrome's espeak backend does not fire `onboundary` events; audio still works.
-
-### Interactivity (poc5+)
-- **Hover highlight (poc5):** character spans are grouped by character into a `Map`; mouseenter/mouseleave adds/removes a CSS class on all spans in the group.
-- **Click-to-fade (poc6):** two `localStorage` sets — `faded-pinyin` (keyed by individual character, e.g. `"的"`) and `faded-gloss` (keyed by joined word chars, e.g. `"大楼"`). Clicking a pinyin syllable fades that character's pinyin everywhere; clicking a gloss fades that word's gloss everywhere. Row (a) has no click interaction.
-
-### Paragraph navigation (poc7)
-- Data format changes from `window.SENTENCES` (flat array) to `window.PARAGRAPHS` (array of `{ sentences: [...] }`).
-- `showParagraph(index)` clears the DOM and both Maps, re-renders, then re-applies faded state — the Maps are paragraph-scoped, not global.
-- Current paragraph index is persisted in `localStorage['paragraph-index']` and restored on load.
+- EPUBs are ZIP archives; reading order and file paths come from the OPF manifest.
+- Chapter boundaries are located via navPoint labels in the NCX table of contents.
