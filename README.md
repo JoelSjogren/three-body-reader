@@ -18,6 +18,7 @@ Everything runs client-side; no server is needed.
 | `poc1.html` | Hard-coded proof of concept — single sentence, 4-row layout |
 | `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
 | `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
+| `poc9.html` | poc8 + 3-mode pinyin/gloss sliders and sigmoidal log-scale frequency coloring |
 | `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` via jieba + pypinyin + Qwen2.5:14b |
 
 ## Goals
@@ -29,7 +30,7 @@ Everything runs client-side; no server is needed.
 - [ ] Hostable on GitHub Pages — reader HTML is static; hosting of book data is not planned
 - [x] 4-row sentence display (a/b/c/d) with character- and word-level alignment
 - [x] Click to hide/show pinyin and English glosses; faded state persisted in `localStorage`
-- [ ] Color characters/words by frequency — likely next; character counts available from charstats.py
+- [x] Color characters by frequency — sigmoidal log-scale slider in poc9; slider middle = rank 100
 - [~] TTS with syllable highlighting — audio works; syllable sync on hold (no reliable
       cross-platform `onboundary` support in browser speech APIs)
 
