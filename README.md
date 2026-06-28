@@ -50,7 +50,9 @@ Everything runs client-side; no server is needed.
   possible to break these at matching Chinese punctuation (。；), but only when the English
   punctuation position aligns with a Chinese clause boundary — otherwise the word/gloss arrays
   would no longer correspond to a single coherent sentence.
-
+- Allow initiating a drag of a character into a tab, starting from either of "known chars", "known
+  words" (then dragging the whole word instead), "para", "chapter", "book".
+  
 ### Handling imperfect Qwen output
 - Qwen is asked for `{"glosses": [{"seg": word, "gloss": "…"}, …], "translation": "…"}`.
 - Count mismatches (Qwen merging or splitting jieba segments) are resolved by greedy

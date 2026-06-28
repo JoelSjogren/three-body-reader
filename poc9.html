@@ -150,6 +150,8 @@
     .g-filter.active .ml-py { color: #6ab0f5; }
     .g-filter.active .ml-en { color: #7dd87d; }
     .g-filter:hover .ml-zh { color: #bbb; }
+    .g-filter.drag-target { outline: 1px solid #6ab0f5; background: #101828; }
+    .g-filter.drag-target .ml-zh { color: #bbb; }
     #g-close {
       background: none; border: none; color: #3a3a3a; font-size: 1.1rem;
       cursor: pointer; padding: 0.1rem 0.35rem; line-height: 1;
@@ -165,9 +167,21 @@
     @keyframes g-flash { 0% { background: #2e2a10; } 100% { background: transparent; } }
     .g-table tr.g-highlight td { animation: g-flash 1.8s ease-out forwards; }
     .g-table td { padding: 0.22rem 0.5rem; border-bottom: 1px solid #1c1c1c; vertical-align: middle; }
-    .g-td-rank { color: #2c2c2c; font-size: 0.6rem; text-align: right; width: 2.2rem; }
-    .g-td-ch   { font-size: 1.9rem; color: #f0d090; width: 2.6rem; text-align: center; line-height: 1; padding: 0.1rem 0.5rem; }
+    .g-td-rank  { color: #2c2c2c; font-size: 0.6rem; text-align: right; width: 2.2rem; }
+    .g-drag-handle { color: #383838; font-size: 0.9rem; cursor: grab; user-select: none;
+                     padding: 0 0.3rem; width: 1.2rem; text-align: center; }
+    .g-group-hdr td { padding: 0.1rem 0.4rem; font-size: 0.62rem; color: #7a6020;
+                      letter-spacing: 0.08em; border-top: 1px solid #2a2a2a; }
+    .g-grouped-char td:first-child { color: #252510; }
+    .g-grouped-char td { border-left: 2px solid #1e1e0a; }
+    .g-group-input { background: transparent; border: none; border-bottom: 1px solid #2a2a2a;
+                     color: #7a6020; font-size: 0.62rem; width: 5rem; outline: none; }
+    .g-group-input:focus { border-bottom-color: #a07a30; }
+    .g-table tr.drop-above td { border-top: 2px solid #6ab0f5 !important; }
+    .g-table tr.drop-below td { border-bottom: 2px solid #6ab0f5 !important; }
+    .g-td-ch   { font-size: 1.9rem; color: #f0d090; width: 2.6rem; text-align: center; line-height: 1; padding: 0.1rem 0.5rem; white-space: nowrap; }
     .g-td-py   { font-size: 0.73rem; color: #6ab0f5; width: 4.5rem; }
+    .g-td-gl   { font-size: 0.68rem; color: #888; max-width: 14rem; }
     .g-td-n    { font-size: 0.6rem; color: #333; text-align: right; width: 2.2rem; }
     .g-td-kn   { width: 2rem; text-align: center; }
     .g-kn-btn  {
@@ -178,11 +192,15 @@
     .g-kn-btn:hover { border-color: #555; color: #aaa; }
     .g-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; padding: 0.1rem 0; }
     .g-chip {
-      display: inline-flex; flex-direction: column; align-items: center;
-      border: 1px solid #202020; border-radius: 2px; padding: 0.08rem 0.32rem; cursor: default;
+      position: relative; display: inline-flex; flex-direction: column; align-items: center;
+      border: 1px solid #202020; border-radius: 2px; padding: 0.08rem 0.32rem 0.08rem 0.55rem;
+      cursor: pointer;
     }
-    .g-chip { cursor: pointer; }
     .g-chip:hover { border-color: #3a3a3a; background: #1c1c1c; }
+    .g-chip-speak { position: absolute; top: 2px; left: 2px; font-size: 0.55rem;
+                    color: #444; background: none; border: none; cursor: pointer; padding: 0; line-height: 1; }
+    .g-chip-speak:hover { color: #aaa; }
+    .g-chip-speak.playing { color: #e05050; }
     .g-chip .wc-zh { font-size: 1.9rem;  color: #f0d090; line-height: 1.3; }
     .g-chip .wc-py { font-size: 0.73rem; color: #6ab0f5; line-height: 1.2; }
     .g-chip .wc-en { font-size: 0.72rem; color: #7dd87d; line-height: 1.2; }
@@ -240,8 +258,11 @@
       <div class="g-head">
         <span class="g-title">词汇表 · vocabulary</span>
         <div class="g-filters">
-          <button class="g-filter" data-f="known">
-            <span class="ml-zh">熟</span><span class="ml-py">shú</span><span class="ml-en">known</span>
+          <button class="g-filter" data-f="known-chars">
+            <span class="ml-zh">熟字</span><span class="ml-py">shú zì</span><span class="ml-en">known chars</span>
+          </button>
+          <button class="g-filter" data-f="known-words">
+            <span class="ml-zh">熟词</span><span class="ml-py">shú cí</span><span class="ml-en">known words</span>
           </button>
           <button class="g-filter active" data-f="paragraph">
             <span class="ml-zh">段</span><span class="ml-py">duàn</span><span class="ml-en">para</span>
@@ -303,11 +324,11 @@
       speechSynthesis.cancel();
       if (activeBtn) { activeBtn.textContent = '▶'; activeBtn.classList.remove('playing'); activeBtn = null; }
     }
-    function speak(text, btn) {
+    function speak(text, btn, rate = 0.3) {
       if (activeBtn === btn) { stopCurrent(); return; }
       stopCurrent();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-CN'; u.rate = 0.3;
+      u.lang = 'zh-CN'; u.rate = rate;
       const v = voices.find(v => v.lang.startsWith('zh'));
       if (v) u.voice = v;
       u.onstart = () => { activeBtn = btn; btn.textContent = '■'; btn.classList.add('playing'); };
@@ -323,16 +344,50 @@
     }
     migrateKey('faded-chars', 'faded-pinyin');
     migrateKey('faded-words', 'faded-gloss');
-    const fadedChars        = new Set(JSON.parse(localStorage.getItem('faded-chars') || '[]'));
-    const fadedWords        = new Set(JSON.parse(localStorage.getItem('faded-words') || '[]'));
+    // fadedCharsOrder: insertion-order array (source of truth for order + membership)
+    // fadedChars: Set derived from it, kept in sync, for O(1) lookup elsewhere
+    const fadedCharsOrder   = JSON.parse(localStorage.getItem('faded-chars') || '[]');
+    const fadedChars        = new Set(fadedCharsOrder);
+    const fadedCharGroups   = new Map(Object.entries(
+                                JSON.parse(localStorage.getItem('faded-char-groups') || '{}')));
+    const fadedWordsOrder   = JSON.parse(localStorage.getItem('faded-words') || '[]');
+    const fadedWords        = new Set(fadedWordsOrder);
+    const fadedWordGroups   = new Map(Object.entries(
+                                JSON.parse(localStorage.getItem('faded-word-groups') || '{}')));
     const pinyinSpansByChar = new Map();
     const wordsByKey        = new Map();
     let pinnedWordKey      = null;
     let clearPinListener   = null;
+    // type: 'char'|'grouped-char'|'group' for known-chars tab
+    //       'word'|'grouped-word'|'word-group' for known-words tab
+    let dragInfo           = null;
 
     function saveFaded() {
-      localStorage.setItem('faded-chars', JSON.stringify([...fadedChars]));
-      localStorage.setItem('faded-words', JSON.stringify([...fadedWords]));
+      localStorage.setItem('faded-chars',       JSON.stringify(fadedCharsOrder));
+      localStorage.setItem('faded-char-groups', JSON.stringify(Object.fromEntries(fadedCharGroups)));
+      localStorage.setItem('faded-words',       JSON.stringify(fadedWordsOrder));
+      localStorage.setItem('faded-word-groups', JSON.stringify(Object.fromEntries(fadedWordGroups)));
+    }
+    function addKnownChar(ch) {
+      if (!fadedChars.has(ch)) { fadedChars.add(ch); fadedCharsOrder.push(ch); }
+    }
+    function removeKnownChar(ch) {
+      fadedChars.delete(ch);
+      fadedCharGroups.delete(ch);
+      const i = fadedCharsOrder.indexOf(ch);
+      if (i >= 0) fadedCharsOrder.splice(i, 1);
+    }
+    function toggleKnownChar(ch) {
+      fadedChars.has(ch) ? removeKnownChar(ch) : addKnownChar(ch);
+    }
+    function addKnownWord(w) {
+      if (!fadedWords.has(w)) { fadedWords.add(w); fadedWordsOrder.push(w); }
+    }
+    function removeKnownWord(w) {
+      fadedWords.delete(w);
+      fadedWordGroups.delete(w);
+      const i = fadedWordsOrder.indexOf(w);
+      if (i >= 0) fadedWordsOrder.splice(i, 1);
     }
     function applyFaded() {
       for (const [ch, spans] of pinyinSpansByChar)
@@ -453,7 +508,7 @@
             if (!pinyinSpansByChar.has(ch)) pinyinSpansByChar.set(ch, []);
             pinyinSpansByChar.get(ch).push(s);
             s.addEventListener('click', () => {
-              fadedChars.has(ch) ? fadedChars.delete(ch) : fadedChars.add(ch);
+              toggleKnownChar(ch);
               saveFaded(); applyFaded();
             });
           }
@@ -470,7 +525,7 @@
           if (!wordsByKey.has(wordKey)) wordsByKey.set(wordKey, []);
           wordsByKey.get(wordKey).push(div);
           rowC.addEventListener('click', () => {
-            fadedWords.has(wordKey) ? fadedWords.delete(wordKey) : fadedWords.add(wordKey);
+            fadedWords.has(wordKey) ? removeKnownWord(wordKey) : addKnownWord(wordKey);
             saveFaded(); applyFaded();
           });
         }
@@ -558,132 +613,673 @@
     }
 
     // ── Glossary ─────────────────────────────────────────────────────────────
-    const charToWords = new Map();
-    const paraChars    = new Set();
-    const paraWords    = new Set();
-    const paraCharFreq = new Map();  // char→count within current paragraph
-    let glossaryFilter = 'paragraph';
-    let knownSnapshot  = null;  // frozen set for sticky known-tab display
+    const charToWords   = new Map();
+    const wordDataByKey = new Map();  // word key → {chars, pinyins, gloss}
+    const paraChars     = new Set();
+    const paraWords     = new Set();
+    const paraCharFreq  = new Map();  // char→count within current paragraph
+    let glossaryFilter    = 'paragraph';
+    let knownSnapshot     = null;  // known-chars tab: frozen fadedCharsOrder.slice() at tab-open
+    let virtualKnown      = null;  // known-chars tab: working copy of fadedChars; committed on leave
+    let knownWordsSnapshot = null; // known-words tab: frozen fadedWordsOrder.slice() at tab-open
+    let virtualKnownWords  = null; // known-words tab: working copy of fadedWords; committed on leave
 
     function buildGlossary(data) {
       charToWords.clear();
+      wordDataByKey.clear();
       const seen = new Set();
       for (const para of data)
         for (const sent of para.sentences)
           for (const w of sent.words)
             if (!w.punct) {
               const key = w.chars.join('');
+              const gloss = w.gloss || '';
               if (!seen.has(key)) {
                 seen.add(key);
+                const wd = { chars: w.chars, pinyins: w.pinyins || [], gloss, glosses: gloss ? [gloss] : [] };
+                wordDataByKey.set(key, wd);
                 for (const ch of w.chars) {
                   if (!charToWords.has(ch)) charToWords.set(ch, []);
-                  charToWords.get(ch).push({ chars: w.chars, pinyins: w.pinyins || [], gloss: w.gloss || '' });
+                  charToWords.get(ch).push(wd);
                 }
+              } else if (gloss) {
+                const wd = wordDataByKey.get(key);
+                if (wd && !wd.glosses.includes(gloss)) wd.glosses.push(gloss);
               }
             }
     }
 
+    function makeWordChips(wordObjs) {
+      const chips = document.createElement('div'); chips.className = 'g-chips';
+      for (const w of wordObjs.slice(0, 8)) {
+        const wKey = w.chars.join('');
+        const chip = document.createElement('div'); chip.className = 'g-chip';
+        const spk = document.createElement('button'); spk.className = 'g-chip-speak'; spk.textContent = '▶';
+        spk.title = 'Read aloud';
+        spk.addEventListener('click', e => { e.stopPropagation(); speak(wKey, spk, 0.7); });
+        const zh = document.createElement('div'); zh.className = 'wc-zh'; zh.textContent = wKey;
+        const py = document.createElement('div'); py.className = 'wc-py'; py.textContent = w.pinyins.join('·');
+        const en = document.createElement('div'); en.className = 'wc-en';
+        en.textContent = w.glosses && w.glosses.length > 0 ? w.glosses.join(' / ') : (w.gloss || '');
+        chip.appendChild(spk); chip.appendChild(zh); chip.appendChild(py); chip.appendChild(en);
+        chip.addEventListener('dblclick', e => {
+          e.stopPropagation();
+          closeGlossary();
+          pinWord(wKey);
+        });
+        chips.appendChild(chip);
+      }
+      return chips;
+    }
+
+    function makeKnownButton(ch, isKnown, onToggle) {
+      const tdKn = document.createElement('td'); tdKn.className = 'g-td-kn';
+      const kb = document.createElement('button'); kb.className = 'g-kn-btn';
+      kb.textContent = isKnown ? '✓' : '·';
+      if (isKnown) kb.classList.add('on');
+      kb.addEventListener('click', onToggle);
+      tdKn.appendChild(kb);
+      return tdKn;
+    }
+
+    function makePinyinCell(ch) {
+      const words = charToWords.get(ch) || [];
+      const pySet = new Set();
+      for (const w of words) {
+        const i = w.chars.indexOf(ch);
+        if (i >= 0 && w.pinyins[i]) pySet.add(w.pinyins[i]);
+      }
+      const td = document.createElement('td'); td.className = 'g-td-py';
+      td.textContent = [...pySet].join(' / ');
+      return td;
+    }
+
+    // Build a list of display items from fadedCharsOrder + fadedCharGroups.
+    // Each item is either {type:'char', ch} (ungrouped) or {type:'group', name, chars:[...]}.
+    // All chars of the same group name are guaranteed adjacent in the result.
+    function computeKnownDisplayItems() {
+      const items = [];
+      for (const ch of fadedCharsOrder) {
+        const grp = fadedCharGroups.get(ch) || '';
+        if (!grp) {
+          items.push({ type: 'char', ch });
+        } else {
+          const last = items[items.length - 1];
+          if (last && last.type === 'group' && last.name === grp)
+            last.chars.push(ch);
+          else
+            items.push({ type: 'group', name: grp, chars: [ch] });
+        }
+      }
+      return items;
+    }
+
+    // Write display items back into fadedCharsOrder and fadedCharGroups.
+    function serializeKnownDisplayItems(items) {
+      fadedCharsOrder.length = 0;
+      fadedCharGroups.clear();
+      for (const item of items) {
+        if (item.type === 'char') {
+          fadedCharsOrder.push(item.ch);
+        } else {
+          for (const ch of item.chars) {
+            fadedCharsOrder.push(ch);
+            fadedCharGroups.set(ch, item.name);
+          }
+        }
+      }
+    }
+
+    // Shared drop logic. insertBefore: true = above the row, false = below.
+    // Group drags never merge into other groups; char drags joining a group
+    // is via insertBefore=false on the group header (= append as first char).
+    function applyKnownDrop(targetType, targetCh, targetGroupName, insertBefore) {
+      if (!dragInfo) return;
+      // Self-drop: dragging onto the same item — nothing to do
+      if (dragInfo.type === 'group' && targetType === 'group' && dragInfo.groupName === targetGroupName) return;
+      if ((dragInfo.type === 'char' || dragInfo.type === 'grouped-char') && dragInfo.ch === targetCh) return;
+      commitKnownTab();
+      const items = computeKnownDisplayItems();
+
+      if (dragInfo.type === 'group') {
+        // ── Moving an entire group ──────────────────────────────────────────────
+        // For group drags hitting a grouped-char row, snap to that char's group boundary.
+        const si = items.findIndex(i => i.type === 'group' && i.name === dragInfo.groupName);
+        if (si < 0) return;
+        const [grp] = items.splice(si, 1);  // remove first (adjusts indices below)
+
+        let ti;
+        if (targetType === 'group') {
+          ti = items.findIndex(i => i.type === 'group' && i.name === targetGroupName);
+        } else if (targetType === 'char') {
+          ti = items.findIndex(i => i.type === 'char' && i.ch === targetCh);
+        } else {
+          // grouped-char: snap to the boundary of that char's group
+          ti = items.findIndex(i => i.type === 'group' && i.name === targetGroupName);
+        }
+        if (ti < 0) ti = items.length;
+        else if (!insertBefore) ti++;
+        items.splice(ti, 0, grp);
+
+      } else {
+        // ── Moving a single char ────────────────────────────────────────────────
+        const srcCh = dragInfo.ch;
+
+        // Remove from source
+        if (dragInfo.type === 'char') {
+          const si = items.findIndex(i => i.type === 'char' && i.ch === srcCh);
+          if (si < 0) return;
+          items.splice(si, 1);
+        } else {
+          const sg = items.find(i => i.type === 'group' && i.name === dragInfo.groupName);
+          if (!sg) return;
+          sg.chars.splice(sg.chars.indexOf(srcCh), 1);
+          if (sg.chars.length === 0) items.splice(items.indexOf(sg), 1);
+        }
+
+        if (targetType === 'group') {
+          if (insertBefore) {
+            // Above header → ungrouped before this group
+            const ti = items.findIndex(i => i.type === 'group' && i.name === targetGroupName);
+            items.splice(ti < 0 ? items.length : ti, 0, { type: 'char', ch: srcCh });
+          } else {
+            // Below header → first position inside the group
+            const tg = items.find(i => i.type === 'group' && i.name === targetGroupName);
+            if (tg) tg.chars.unshift(srcCh);
+          }
+        } else if (targetType === 'char') {
+          const ti = items.findIndex(i => i.type === 'char' && i.ch === targetCh);
+          const ins = ti < 0 ? items.length : (insertBefore ? ti : ti + 1);
+          items.splice(ins, 0, { type: 'char', ch: srcCh });
+        } else {
+          // grouped-char: insert within its group before or after the target char
+          const tg = items.find(i => i.type === 'group' && i.name === targetGroupName);
+          if (tg) {
+            const ci = tg.chars.indexOf(targetCh);
+            tg.chars.splice(insertBefore ? ci : ci + 1, 0, srcCh);
+          }
+        }
+      }
+
+      serializeKnownDisplayItems(items);
+      knownSnapshot = null;
+      saveFaded(); renderGlossary();
+    }
+
+    // ── Known-words display-items helpers (mirror of the char versions) ───────
+    function computeKnownWordsDisplayItems() {
+      const items = [];
+      for (const w of fadedWordsOrder) {
+        const grp = fadedWordGroups.get(w) || '';
+        if (!grp) {
+          items.push({ type: 'word', word: w });
+        } else {
+          const last = items[items.length - 1];
+          if (last && last.type === 'word-group' && last.name === grp)
+            last.words.push(w);
+          else
+            items.push({ type: 'word-group', name: grp, words: [w] });
+        }
+      }
+      return items;
+    }
+
+    function serializeKnownWordsDisplayItems(items) {
+      fadedWordsOrder.length = 0;
+      fadedWordGroups.clear();
+      for (const item of items) {
+        if (item.type === 'word') {
+          fadedWordsOrder.push(item.word);
+        } else {
+          for (const w of item.words) {
+            fadedWordsOrder.push(w);
+            fadedWordGroups.set(w, item.name);
+          }
+        }
+      }
+    }
+
+    function applyKnownWordsDrop(targetType, targetWord, targetGroupName, insertBefore) {
+      if (!dragInfo) return;
+      if (dragInfo.type === 'word-group' && targetType === 'word-group' && dragInfo.groupName === targetGroupName) return;
+      if ((dragInfo.type === 'word' || dragInfo.type === 'grouped-word') && dragInfo.word === targetWord) return;
+      commitKnownWordsTab();
+      const items = computeKnownWordsDisplayItems();
+
+      if (dragInfo.type === 'word-group') {
+        const si = items.findIndex(i => i.type === 'word-group' && i.name === dragInfo.groupName);
+        if (si < 0) return;
+        const [grp] = items.splice(si, 1);
+        let ti;
+        if (targetType === 'word-group') {
+          ti = items.findIndex(i => i.type === 'word-group' && i.name === targetGroupName);
+        } else if (targetType === 'word') {
+          ti = items.findIndex(i => i.type === 'word' && i.word === targetWord);
+        } else {
+          ti = items.findIndex(i => i.type === 'word-group' && i.name === targetGroupName);
+        }
+        if (ti < 0) ti = items.length;
+        else if (!insertBefore) ti++;
+        items.splice(ti, 0, grp);
+      } else {
+        const srcWord = dragInfo.word;
+        if (dragInfo.type === 'word') {
+          const si = items.findIndex(i => i.type === 'word' && i.word === srcWord);
+          if (si < 0) return;
+          items.splice(si, 1);
+        } else {
+          const sg = items.find(i => i.type === 'word-group' && i.name === dragInfo.groupName);
+          if (!sg) return;
+          sg.words.splice(sg.words.indexOf(srcWord), 1);
+          if (sg.words.length === 0) items.splice(items.indexOf(sg), 1);
+        }
+        if (targetType === 'word-group') {
+          if (insertBefore) {
+            const ti = items.findIndex(i => i.type === 'word-group' && i.name === targetGroupName);
+            items.splice(ti < 0 ? items.length : ti, 0, { type: 'word', word: srcWord });
+          } else {
+            const tg = items.find(i => i.type === 'word-group' && i.name === targetGroupName);
+            if (tg) tg.words.unshift(srcWord);
+          }
+        } else if (targetType === 'word') {
+          const ti = items.findIndex(i => i.type === 'word' && i.word === targetWord);
+          const ins = ti < 0 ? items.length : (insertBefore ? ti : ti + 1);
+          items.splice(ins, 0, { type: 'word', word: srcWord });
+        } else {
+          const tg = items.find(i => i.type === 'word-group' && i.name === targetGroupName);
+          if (tg) {
+            const wi = tg.words.indexOf(targetWord);
+            tg.words.splice(insertBefore ? wi : wi + 1, 0, srcWord);
+          }
+        }
+      }
+      serializeKnownWordsDisplayItems(items);
+      knownWordsSnapshot = null;
+      saveFaded(); renderGlossary();
+    }
+
     function renderGlossary() {
-      const all = [...charRank.entries()].sort((a, b) => a[1] - b[1]).map(([ch]) => ch);
-      // known tab: capture snapshot on first render; rows stay until tab switch/reopen
-      if (glossaryFilter === 'known') {
-        if (!knownSnapshot) knownSnapshot = new Set(fadedChars);
+      const isKnownTab      = glossaryFilter === 'known-chars';
+      const isKnownWordsTab = glossaryFilter === 'known-words';
+
+      // Init/clear virtual state and snapshots for each known tab
+      if (isKnownTab) {
+        if (!virtualKnown)  virtualKnown  = new Set(fadedChars);
+        if (!knownSnapshot) knownSnapshot = fadedCharsOrder.slice();
       } else {
         knownSnapshot = null;
       }
-      const rows = all.filter(ch => {
-        if (glossaryFilter === 'known')     return knownSnapshot.has(ch);
-        if (glossaryFilter === 'paragraph') return paraChars.has(ch);
-        if (glossaryFilter === 'chapter')   return true;
-        if (glossaryFilter === 'book')      return true;
-        return true;
-      });
+      if (isKnownWordsTab) {
+        if (!virtualKnownWords)  virtualKnownWords  = new Set(fadedWords);
+        if (!knownWordsSnapshot) knownWordsSnapshot = fadedWordsOrder.slice();
+      } else {
+        knownWordsSnapshot = null;
+      }
 
-      const knownCount = all.filter(ch => fadedChars.has(ch)).length;
-      document.getElementById('g-stats').textContent =
-        `${all.length} chars in chapter · ${knownCount} known · ${paraChars.size} in paragraph · showing ${rows.length}`;
+      // Build char rows (not needed for known-words tab)
+      let rows = [];
+      if (isKnownTab) {
+        rows = knownSnapshot;
+      } else if (!isKnownWordsTab) {
+        const all = [...charRank.entries()].sort((a, b) => a[1] - b[1]).map(([ch]) => ch);
+        const useParaFreq = glossaryFilter === 'paragraph';
+        const useBookFreq = glossaryFilter === 'book' && bookCharFreq.size > 0;
+        rows = all.filter(ch =>
+          glossaryFilter === 'paragraph' ? paraChars.has(ch) : true
+        );
+        if (useParaFreq)
+          rows.sort((a, b) => (paraCharFreq.get(b) || 0) - (paraCharFreq.get(a) || 0));
+        else if (useBookFreq)
+          rows.sort((a, b) => (bookCharRank.get(a) || 99999) - (bookCharRank.get(b) || 99999));
+      }
+
+      // Stats bar
+      if (isKnownWordsTab) {
+        document.getElementById('g-stats').textContent =
+          `${fadedWords.size} words known · showing ${knownWordsSnapshot.length}`;
+      } else {
+        const chapterSize = charRank.size;
+        document.getElementById('g-stats').textContent =
+          `${chapterSize} chars in chapter · ${fadedChars.size} known · ${paraChars.size} in paragraph · showing ${rows.length}`;
+      }
 
       const body = document.getElementById('g-body');
       body.innerHTML = '';
-      if (!rows.length) { body.style.padding = '1rem'; body.textContent = '—'; return; }
+      const isEmpty = isKnownWordsTab ? !knownWordsSnapshot.length : !rows.length;
+      if (isEmpty) { body.style.padding = '1rem'; body.textContent = '—'; return; }
       body.style.padding = '';
 
       const tbl = document.createElement('table');
       tbl.className = 'g-table';
 
-      const useParaFreq = glossaryFilter === 'paragraph';
-      const useBookFreq = glossaryFilter === 'book' && bookCharFreq.size > 0;
-      const omitCount   = glossaryFilter === 'known';
-
-      if (useParaFreq)
-        rows.sort((a, b) => (paraCharFreq.get(b) || 0) - (paraCharFreq.get(a) || 0));
-      else if (useBookFreq)
-        rows.sort((a, b) => (bookCharRank.get(a) || 99999) - (bookCharRank.get(b) || 99999));
-
-      for (let ri = 0; ri < rows.length; ri++) {
-        const ch = rows[ri];
-        const words = charToWords.get(ch) || [];
-
-        // Collect unique pinyins for this char across all words it appears in
-        const pySet = new Set();
-        for (const w of words) {
-          const i = w.chars.indexOf(ch);
-          if (i >= 0 && w.pinyins[i]) pySet.add(w.pinyins[i]);
+      if (isKnownTab) {
+        // ── Known tab: groups-as-units, insert-between drag ───────────────────
+        // Returns true if the pointer is in the top half of el's bounding box.
+        function aboveMid(e, el) {
+          const r = el.getBoundingClientRect();
+          return e.clientY < r.top + r.height / 2;
         }
 
-        const tr = document.createElement('tr');
-        tr.dataset.ch = ch;
-
-        const tdRank = document.createElement('td'); tdRank.className = 'g-td-rank';
-        tdRank.textContent = useParaFreq ? (ri + 1)
-                           : useBookFreq ? (bookCharRank.get(ch) || '?')
-                           : charRank.get(ch);
-
-        const tdCh = document.createElement('td'); tdCh.className = 'g-td-ch';
-        tdCh.textContent = ch;
-
-        const tdPy = document.createElement('td'); tdPy.className = 'g-td-py';
-        tdPy.textContent = [...pySet].join(' / ');
-
-        const tdN = document.createElement('td'); tdN.className = 'g-td-n';
-        tdN.textContent = omitCount    ? ''
-                        : useParaFreq ? (paraCharFreq.get(ch) || '')
-                        : useBookFreq ? (bookCharFreq.get(ch) || '')
-                        : charFreq.get(ch);
-
-        const tdKn = document.createElement('td'); tdKn.className = 'g-td-kn';
-        const kb = document.createElement('button'); kb.className = 'g-kn-btn';
-        const isKnown = fadedChars.has(ch);
-        kb.textContent = isKnown ? '✓' : '·';
-        if (isKnown) kb.classList.add('on');
-        kb.addEventListener('click', () => {
-          fadedChars.has(ch) ? fadedChars.delete(ch) : fadedChars.add(ch);
-          saveFaded(); applyFaded(); renderGlossary();
-        });
-        tdKn.appendChild(kb);
-
-        const tdW = document.createElement('td');
-        const chips = document.createElement('div'); chips.className = 'g-chips';
-        const paraWordObjs = words.filter(w => paraWords.has(w.chars.join('')));
-        for (const w of paraWordObjs.slice(0, 8)) {
-          const wKey = w.chars.join('');
-          const chip = document.createElement('div'); chip.className = 'g-chip';
-          const zh = document.createElement('div'); zh.className = 'wc-zh'; zh.textContent = wKey;
-          const py = document.createElement('div'); py.className = 'wc-py'; py.textContent = w.pinyins.join('·');
-          const en = document.createElement('div'); en.className = 'wc-en'; en.textContent = w.gloss;
-          chip.appendChild(zh); chip.appendChild(py); chip.appendChild(en);
-          chip.addEventListener('dblclick', e => {
-            e.stopPropagation();  // don't let this bubble to the document click-to-clear
-            closeGlossary();
-            pinWord(wKey);
+        // Wire up insert-between drag-over visuals and the drop handler.
+        // skipWhenGroupDrag: true for grouped-char rows (group drags snap to group boundary instead).
+        function setupDrop(tr, targetType, targetCh, targetGroupName) {
+          tr.addEventListener('dragover', e => {
+            if (!dragInfo) return;
+            // When dragging a group, ignore rows inside other groups entirely
+            if (dragInfo.type === 'group' && targetType === 'grouped-char') return;
+            e.preventDefault();
+            const above = aboveMid(e, tr);
+            tr.classList.toggle('drop-above', above);
+            tr.classList.toggle('drop-below', !above);
           });
-          chips.appendChild(chip);
+          tr.addEventListener('dragleave', () => tr.classList.remove('drop-above', 'drop-below'));
+          tr.addEventListener('drop', e => {
+            e.preventDefault();
+            const before = aboveMid(e, tr);
+            tr.classList.remove('drop-above', 'drop-below');
+            applyKnownDrop(targetType, targetCh, targetGroupName, before);
+          });
         }
-        tdW.appendChild(chips);
 
-        tr.appendChild(tdRank); tr.appendChild(tdCh); tr.appendChild(tdPy);
-        tr.appendChild(tdN);    tr.appendChild(tdKn); tr.appendChild(tdW);
-        tbl.appendChild(tr);
+        const displayItems = computeKnownDisplayItems();
+
+        for (const item of displayItems) {
+          if (item.type === 'group') {
+            // ── Group header row ──────────────────────────────────────────────
+            const htr = document.createElement('tr'); htr.className = 'g-group-hdr';
+            setupDrop(htr, 'group', null, item.name);
+
+            const tdHDrag = document.createElement('td'); tdHDrag.className = 'g-drag-handle';
+            tdHDrag.textContent = '≡'; tdHDrag.draggable = true;
+            tdHDrag.addEventListener('dragstart', e => {
+              e.stopPropagation();
+              dragInfo = { type: 'group', groupName: item.name };
+              htr.style.opacity = '0.4';
+              e.dataTransfer.setDragImage(tdHDrag, e.offsetX, e.offsetY);
+            });
+            tdHDrag.addEventListener('dragend', () => { dragInfo = null; htr.style.opacity = ''; });
+            const tdHName = document.createElement('td'); tdHName.colSpan = 5;
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text'; nameInput.className = 'g-group-input';
+            nameInput.value = item.name;
+            nameInput.addEventListener('blur', () => {
+              const v = nameInput.value.trim();
+              if (!v || v === item.name) { if (!v) nameInput.value = item.name; return; }
+              commitKnownTab();
+              const its = computeKnownDisplayItems();
+              const thisGrp = its.find(i => i.type === 'group' && i.name === item.name);
+              if (!thisGrp) return;
+              const existing = its.find(i => i.type === 'group' && i.name === v);
+              if (existing) { existing.chars.push(...thisGrp.chars); its.splice(its.indexOf(thisGrp), 1); }
+              else thisGrp.name = v;
+              serializeKnownDisplayItems(its); knownSnapshot = null; saveFaded(); renderGlossary();
+            });
+            nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameInput.blur(); });
+            tdHName.appendChild(nameInput);
+            htr.appendChild(tdHDrag); htr.appendChild(tdHName);
+            tbl.appendChild(htr);
+
+            // ── Rows for chars within this group ──────────────────────────────
+            for (const ch of item.chars) {
+              const words = charToWords.get(ch) || [];
+              const tr = document.createElement('tr');
+              tr.className = 'g-grouped-char'; tr.dataset.ch = ch;
+              setupDrop(tr, 'grouped-char', ch, item.name);
+
+              const tdDrag = document.createElement('td'); tdDrag.className = 'g-drag-handle'; tdDrag.textContent = '⠿';
+              const tdCh   = document.createElement('td'); tdCh.className = 'g-td-ch'; tdCh.textContent = ch;
+              tdCh.draggable = true;
+              tdCh.addEventListener('dragstart', e => {
+                e.stopPropagation();
+                dragInfo = { type: 'grouped-char', ch, groupName: item.name };
+                tr.style.opacity = '0.4';
+                e.dataTransfer.setDragImage(tdCh, e.offsetX, e.offsetY);
+              });
+              tdCh.addEventListener('dragend', () => { dragInfo = null; tr.style.opacity = ''; });
+              const tdEmpty = document.createElement('td');
+              const tdW = document.createElement('td');
+              tdW.appendChild(makeWordChips(words.filter(w => paraWords.has(w.chars.join('')))));
+
+              tr.appendChild(tdDrag); tr.appendChild(tdCh); tr.appendChild(makePinyinCell(ch));
+              tr.appendChild(tdEmpty);
+              tr.appendChild(makeKnownButton(ch, virtualKnown.has(ch), () => {
+                virtualKnown.has(ch) ? virtualKnown.delete(ch) : virtualKnown.add(ch);
+                renderGlossary();
+              }));
+              tr.appendChild(tdW);
+              tbl.appendChild(tr);
+            }
+
+          } else {
+            // ── Ungrouped char row ────────────────────────────────────────────
+            const ch = item.ch;
+            const words = charToWords.get(ch) || [];
+            const tr = document.createElement('tr');
+            tr.dataset.ch = ch;
+            setupDrop(tr, 'char', ch, null);
+
+            const tdDrag = document.createElement('td'); tdDrag.className = 'g-drag-handle'; tdDrag.textContent = '⠿';
+            const tdCh   = document.createElement('td'); tdCh.className = 'g-td-ch'; tdCh.textContent = ch;
+            tdCh.draggable = true;
+            tdCh.addEventListener('dragstart', e => {
+              e.stopPropagation();
+              dragInfo = { type: 'char', ch };
+              tr.style.opacity = '0.4';
+              e.dataTransfer.setDragImage(tdCh, e.offsetX, e.offsetY);
+            });
+            tdCh.addEventListener('dragend', () => { dragInfo = null; tr.style.opacity = ''; });
+
+            const tdGroup = document.createElement('td');
+            const gi = document.createElement('input');
+            gi.type = 'text'; gi.className = 'g-group-input'; gi.placeholder = '…'; gi.value = '';
+            gi.addEventListener('blur', () => {
+              const v = gi.value.trim();
+              if (!v) return;
+              commitKnownTab();
+              const its = computeKnownDisplayItems();
+              const si = its.findIndex(i => i.type === 'char' && i.ch === ch);
+              if (si < 0) return;
+              its.splice(si, 1);
+              const eg = its.find(i => i.type === 'group' && i.name === v);
+              if (eg) eg.chars.push(ch);
+              else its.splice(si, 0, { type: 'group', name: v, chars: [ch] });
+              serializeKnownDisplayItems(its); knownSnapshot = null; saveFaded(); renderGlossary();
+            });
+            gi.addEventListener('keydown', e => { if (e.key === 'Enter') gi.blur(); });
+            tdGroup.appendChild(gi);
+
+            const tdW = document.createElement('td');
+            tdW.appendChild(makeWordChips(words.filter(w => paraWords.has(w.chars.join('')))));
+
+            tr.appendChild(tdDrag); tr.appendChild(tdCh); tr.appendChild(makePinyinCell(ch));
+            tr.appendChild(tdGroup);
+            tr.appendChild(makeKnownButton(ch, virtualKnown.has(ch), () => {
+              virtualKnown.has(ch) ? virtualKnown.delete(ch) : virtualKnown.add(ch);
+              renderGlossary();
+            }));
+            tr.appendChild(tdW);
+            tbl.appendChild(tr);
+          }
+        }
+      } else if (isKnownWordsTab) {
+        // ── Known words tab: groups-as-units, insert-between drag ─────────────
+        function aboveMidW(e, el) {
+          const r = el.getBoundingClientRect();
+          return e.clientY < r.top + r.height / 2;
+        }
+        function setupWordDrop(tr, targetType, targetWord, targetGroupName) {
+          tr.addEventListener('dragover', e => {
+            if (!dragInfo) return;
+            if (dragInfo.type === 'word-group' && targetType === 'grouped-word') return;
+            e.preventDefault();
+            const above = aboveMidW(e, tr);
+            tr.classList.toggle('drop-above', above);
+            tr.classList.toggle('drop-below', !above);
+          });
+          tr.addEventListener('dragleave', () => tr.classList.remove('drop-above', 'drop-below'));
+          tr.addEventListener('drop', e => {
+            e.preventDefault();
+            const before = aboveMidW(e, tr);
+            tr.classList.remove('drop-above', 'drop-below');
+            applyKnownWordsDrop(targetType, targetWord, targetGroupName, before);
+          });
+        }
+
+        const wordDisplayItems = computeKnownWordsDisplayItems();
+
+        for (const item of wordDisplayItems) {
+          if (item.type === 'word-group') {
+            // ── Word-group header row ─────────────────────────────────────────
+            const htr = document.createElement('tr'); htr.className = 'g-group-hdr';
+            setupWordDrop(htr, 'word-group', null, item.name);
+
+            const tdHDrag = document.createElement('td'); tdHDrag.className = 'g-drag-handle'; tdHDrag.textContent = '≡';
+            tdHDrag.draggable = true;
+            tdHDrag.addEventListener('dragstart', e => {
+              e.stopPropagation();
+              dragInfo = { type: 'word-group', groupName: item.name };
+              htr.style.opacity = '0.4';
+              e.dataTransfer.setDragImage(tdHDrag, e.offsetX, e.offsetY);
+            });
+            tdHDrag.addEventListener('dragend', () => { dragInfo = null; htr.style.opacity = ''; });
+            const tdHName = document.createElement('td'); tdHName.colSpan = 5;
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text'; nameInput.className = 'g-group-input';
+            nameInput.value = item.name;
+            nameInput.addEventListener('blur', () => {
+              const v = nameInput.value.trim();
+              if (!v || v === item.name) { if (!v) nameInput.value = item.name; return; }
+              commitKnownWordsTab();
+              const its = computeKnownWordsDisplayItems();
+              const thisGrp = its.find(i => i.type === 'word-group' && i.name === item.name);
+              if (!thisGrp) return;
+              const existing = its.find(i => i.type === 'word-group' && i.name === v);
+              if (existing) { existing.words.push(...thisGrp.words); its.splice(its.indexOf(thisGrp), 1); }
+              else thisGrp.name = v;
+              serializeKnownWordsDisplayItems(its); knownWordsSnapshot = null; saveFaded(); renderGlossary();
+            });
+            nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameInput.blur(); });
+            tdHName.appendChild(nameInput);
+            htr.appendChild(tdHDrag); htr.appendChild(tdHName);
+            tbl.appendChild(htr);
+
+            // ── Rows for words within this group ──────────────────────────────
+            for (const w of item.words) {
+              const wd = wordDataByKey.get(w);
+              const tr = document.createElement('tr');
+              tr.className = 'g-grouped-char';
+              setupWordDrop(tr, 'grouped-word', w, item.name);
+
+              const tdDrag = document.createElement('td'); tdDrag.className = 'g-drag-handle'; tdDrag.textContent = '⠿';
+              const tdW  = document.createElement('td'); tdW.className  = 'g-td-ch'; tdW.textContent  = w;
+              tdW.draggable = true;
+              tdW.addEventListener('dragstart', e => {
+                e.stopPropagation();
+                dragInfo = { type: 'grouped-word', word: w, groupName: item.name };
+                tr.style.opacity = '0.4';
+                e.dataTransfer.setDragImage(tdW, e.offsetX, e.offsetY);
+              });
+              tdW.addEventListener('dragend', () => { dragInfo = null; tr.style.opacity = ''; });
+              const tdPy = document.createElement('td'); tdPy.className = 'g-td-py'; tdPy.textContent = wd ? wd.pinyins.join('·') : '';
+              const tdGl = document.createElement('td'); tdGl.className = 'g-td-gl'; tdGl.textContent = wd ? wd.gloss : '';
+              const tdEmpty = document.createElement('td');
+
+              tr.appendChild(tdDrag); tr.appendChild(tdW); tr.appendChild(tdPy); tr.appendChild(tdGl);
+              tr.appendChild(tdEmpty);
+              tr.appendChild(makeKnownButton(w, virtualKnownWords.has(w), () => {
+                virtualKnownWords.has(w) ? virtualKnownWords.delete(w) : virtualKnownWords.add(w);
+                renderGlossary();
+              }));
+              tbl.appendChild(tr);
+            }
+
+          } else {
+            // ── Ungrouped word row ────────────────────────────────────────────
+            const w = item.word;
+            const wd = wordDataByKey.get(w);
+            const tr = document.createElement('tr');
+            setupWordDrop(tr, 'word', w, null);
+
+            const tdDrag = document.createElement('td'); tdDrag.className = 'g-drag-handle'; tdDrag.textContent = '⠿';
+            const tdW  = document.createElement('td'); tdW.className  = 'g-td-ch'; tdW.textContent  = w;
+            tdW.draggable = true;
+            tdW.addEventListener('dragstart', e => {
+              e.stopPropagation();
+              dragInfo = { type: 'word', word: w };
+              tr.style.opacity = '0.4';
+              e.dataTransfer.setDragImage(tdW, e.offsetX, e.offsetY);
+            });
+            tdW.addEventListener('dragend', () => { dragInfo = null; tr.style.opacity = ''; });
+            const tdPy = document.createElement('td'); tdPy.className = 'g-td-py'; tdPy.textContent = wd ? wd.pinyins.join('·') : '';
+            const tdGl = document.createElement('td'); tdGl.className = 'g-td-gl'; tdGl.textContent = wd ? wd.gloss : '';
+
+            const tdGroup = document.createElement('td');
+            const gi = document.createElement('input');
+            gi.type = 'text'; gi.className = 'g-group-input'; gi.placeholder = '…'; gi.value = '';
+            gi.addEventListener('blur', () => {
+              const v = gi.value.trim();
+              if (!v) return;
+              commitKnownWordsTab();
+              const its = computeKnownWordsDisplayItems();
+              const si = its.findIndex(i => i.type === 'word' && i.word === w);
+              if (si < 0) return;
+              its.splice(si, 1);
+              const eg = its.find(i => i.type === 'word-group' && i.name === v);
+              if (eg) eg.words.push(w);
+              else its.splice(si, 0, { type: 'word-group', name: v, words: [w] });
+              serializeKnownWordsDisplayItems(its); knownWordsSnapshot = null; saveFaded(); renderGlossary();
+            });
+            gi.addEventListener('keydown', e => { if (e.key === 'Enter') gi.blur(); });
+            tdGroup.appendChild(gi);
+
+            tr.appendChild(tdDrag); tr.appendChild(tdW); tr.appendChild(tdPy); tr.appendChild(tdGl);
+            tr.appendChild(tdGroup);
+            tr.appendChild(makeKnownButton(w, virtualKnownWords.has(w), () => {
+              virtualKnownWords.has(w) ? virtualKnownWords.delete(w) : virtualKnownWords.add(w);
+              renderGlossary();
+            }));
+            tbl.appendChild(tr);
+          }
+        }
+
+      } else {
+        // ── Other tabs: rank + count columns, no drag ─────────────────────────
+        const useParaFreq = glossaryFilter === 'paragraph';
+        const useBookFreq = glossaryFilter === 'book' && bookCharFreq.size > 0;
+        for (let ri = 0; ri < rows.length; ri++) {
+          const ch = rows[ri];
+          const words = charToWords.get(ch) || [];
+
+          const tr = document.createElement('tr');
+          tr.dataset.ch = ch;
+
+          const tdRank = document.createElement('td'); tdRank.className = 'g-td-rank';
+          tdRank.textContent = useParaFreq ? (ri + 1)
+                             : useBookFreq ? (bookCharRank.get(ch) || '?')
+                             : charRank.get(ch);
+
+          const tdCh = document.createElement('td'); tdCh.className = 'g-td-ch';
+          tdCh.textContent = ch;
+
+          const tdN = document.createElement('td'); tdN.className = 'g-td-n';
+          tdN.textContent = useParaFreq ? (paraCharFreq.get(ch) || '')
+                          : useBookFreq ? (bookCharFreq.get(ch) || '')
+                          : charFreq.get(ch);
+
+          const tdW = document.createElement('td');
+          const scopedWords = useParaFreq
+            ? words.filter(w => paraWords.has(w.chars.join('')))
+            : words;
+          tdW.appendChild(makeWordChips(scopedWords));
+
+          tr.appendChild(tdRank); tr.appendChild(tdCh); tr.appendChild(makePinyinCell(ch));
+          tr.appendChild(tdN);
+          tr.appendChild(makeKnownButton(ch, fadedChars.has(ch), () => {
+            toggleKnownChar(ch); saveFaded(); applyFaded(); renderGlossary();
+          }));
+          tr.appendChild(tdW);
+          tbl.appendChild(tr);
+        }
       }
       body.appendChild(tbl);
     }
@@ -712,20 +1308,74 @@
       document.addEventListener('click', clearPinListener, { once: true });
     }
 
+    function commitKnownTab() {
+      if (!virtualKnown) return;
+      // Apply pending removes (chars in fadedChars but toggled off in virtualKnown)
+      for (const ch of [...fadedChars])
+        if (!virtualKnown.has(ch)) removeKnownChar(ch);
+      // Apply pending adds (chars toggled on that weren't in fadedChars — rare, but safe)
+      for (const ch of virtualKnown)
+        if (!fadedChars.has(ch)) addKnownChar(ch);
+      virtualKnown = null;
+      saveFaded(); applyFaded();
+    }
+
+    function commitKnownWordsTab() {
+      if (!virtualKnownWords) return;
+      for (const w of [...fadedWords])
+        if (!virtualKnownWords.has(w)) removeKnownWord(w);
+      for (const w of virtualKnownWords)
+        if (!fadedWords.has(w)) addKnownWord(w);
+      virtualKnownWords = null;
+      saveFaded(); applyFaded();
+    }
+
     function closeGlossary() {
+      commitKnownTab();
+      commitKnownWordsTab();
       knownSnapshot = null;
+      knownWordsSnapshot = null;
       document.getElementById('g-overlay').classList.remove('open');
     }
     document.getElementById('g-close').addEventListener('click', closeGlossary);
     document.getElementById('g-overlay').addEventListener('click', e => {
       if (e.target === document.getElementById('g-overlay')) closeGlossary();
     });
-    document.querySelectorAll('.g-filter').forEach(btn => btn.addEventListener('click', () => {
-      document.querySelectorAll('.g-filter').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      glossaryFilter = btn.dataset.f;
-      renderGlossary();
-    }));
+    document.querySelectorAll('.g-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        commitKnownTab();
+        commitKnownWordsTab();
+        document.querySelectorAll('.g-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        glossaryFilter = btn.dataset.f;
+        renderGlossary();
+      });
+
+      // Accept char drags — switch to that tab and highlight the char's row
+      btn.addEventListener('dragover', e => {
+        if (!dragInfo || !dragInfo.ch || btn.dataset.f === 'known-words') return;
+        e.preventDefault();
+        btn.classList.add('drag-target');
+      });
+      btn.addEventListener('dragleave', () => btn.classList.remove('drag-target'));
+      btn.addEventListener('drop', e => {
+        e.preventDefault();
+        btn.classList.remove('drag-target');
+        if (!dragInfo || !dragInfo.ch) return;
+        const ch = dragInfo.ch;
+        commitKnownTab();
+        commitKnownWordsTab();
+        document.querySelectorAll('.g-filter').forEach(b => b.classList.toggle('active', b === btn));
+        glossaryFilter = btn.dataset.f;
+        renderGlossary();
+        const row = document.querySelector('#g-body tr[data-ch="' + ch + '"]');
+        if (row) {
+          row.scrollIntoView({ block: 'center' });
+          row.classList.add('g-highlight');
+          setTimeout(() => row.classList.remove('g-highlight'), 1800);
+        }
+      });
+    });
 
     function openGlossaryForChar(ch) {
       glossaryFilter = 'paragraph';
@@ -744,8 +1394,10 @@
     // ── Glossary actions ─────────────────────────────────────────────────────
     document.getElementById('g-download').addEventListener('click', () => {
       const payload = {
-        chars: [...fadedChars].sort(),
-        words: [...fadedWords].sort()
+        chars:      fadedCharsOrder,
+        charGroups: Object.fromEntries(fadedCharGroups),
+        words:      fadedWordsOrder,
+        wordGroups: Object.fromEntries(fadedWordGroups)
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -761,13 +1413,23 @@
       fr.onload = e => {
         try {
           const data = JSON.parse(e.target.result);
-          // Support new {chars,words}, legacy {pinyin,gloss}, and bare array (pinyin/chars only)
-          const charsArr = Array.isArray(data) ? data : (data.chars || data.pinyin || []);
-          const wordsArr = Array.isArray(data) ? []   : (data.words || data.gloss  || []);
-          fadedChars.clear();
-          for (const ch of charsArr) if (typeof ch === 'string') fadedChars.add(ch);
-          fadedWords.clear();
-          for (const w of wordsArr) if (typeof w === 'string') fadedWords.add(w);
+          // Support new {chars,charGroups,words,wordGroups}, legacy {pinyin,gloss}, bare array (chars only)
+          const charsArr      = Array.isArray(data) ? data : (data.chars  || data.pinyin || []);
+          const wordsArr      = Array.isArray(data) ? []   : (data.words  || data.gloss  || []);
+          const charGroupsObj = Array.isArray(data) ? {}   : (data.charGroups || {});
+          const wordGroupsObj = Array.isArray(data) ? {}   : (data.wordGroups || {});
+          fadedCharsOrder.length = 0; fadedChars.clear(); fadedCharGroups.clear();
+          for (const ch of charsArr)
+            if (typeof ch === 'string' && ch && !fadedChars.has(ch))
+              { fadedChars.add(ch); fadedCharsOrder.push(ch); }
+          for (const [ch, g] of Object.entries(charGroupsObj))
+            if (typeof g === 'string' && g) fadedCharGroups.set(ch, g);
+          fadedWordsOrder.length = 0; fadedWords.clear(); fadedWordGroups.clear();
+          for (const w of wordsArr)
+            if (typeof w === 'string' && w && !fadedWords.has(w))
+              { fadedWords.add(w); fadedWordsOrder.push(w); }
+          for (const [w, g] of Object.entries(wordGroupsObj))
+            if (typeof g === 'string' && g) fadedWordGroups.set(w, g);
           saveFaded(); applyFaded(); renderGlossary();
         } catch (ex) { alert('Could not load file: ' + ex.message); }
       };
@@ -775,7 +1437,8 @@
     });
     document.getElementById('g-clear').addEventListener('click', () => {
       if (!confirm('Clear all known characters and words?')) return;
-      fadedChars.clear(); fadedWords.clear();
+      fadedCharsOrder.length = 0; fadedChars.clear(); fadedCharGroups.clear();
+      fadedWordsOrder.length = 0; fadedWords.clear(); fadedWordGroups.clear();
       saveFaded(); applyFaded(); renderGlossary();
     });
 
