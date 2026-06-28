@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Body Reader — POC 9</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: "Segoe UI", sans-serif;
+      padding: 2rem;
+      max-width: 56rem;
+    }
+
+    /* ── File picker ── */
+    #loader {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; gap: 1.2rem;
+    }
+    #loader p { font-size: 0.85rem; color: #555; letter-spacing: 0.05em; }
+    #file-btn {
+      background: #1a1a1a; color: #888; border: 1px solid #333;
+      padding: 0.55rem 1.4rem; font-size: 0.9rem; cursor: pointer;
+      border-radius: 3px; letter-spacing: 0.06em;
+    }
+    #file-btn:hover { background: #222; color: #ddd; border-color: #555; }
+    #file-input { display: none; }
+    #loader-error { font-size: 0.78rem; color: #c05050; display: none; }
+
+    /* ── Navigation ── */
+    #reader { display: none; }
+    .nav {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-bottom: 2.5rem; flex-wrap: wrap;
+    }
+    .nav button {
+      background: #1a1a1a; color: #888; border: 1px solid #333;
+      padding: 0.3rem 0.9rem; font-size: 0.85rem; cursor: pointer;
+      border-radius: 3px; letter-spacing: 0.05em;
+    }
+    .nav button:hover:not(:disabled) { background: #262626; color: #ddd; border-color: #555; }
+    .nav button:disabled { opacity: 0.3; cursor: default; }
+    .nav-label { font-size: 0.72rem; color: #555; letter-spacing: 0.06em; }
+    .nav-sep { flex: 1; }
+
+    .mode-slider { display: flex; align-items: center; gap: 0.4rem; }
+    .mode-lbl { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+    .ml-zh { font-size: 0.9rem;  color: #f0d090; }
+    .ml-py { font-size: 0.48rem; color: #6ab0f5; }
+    .ml-en { font-size: 0.48rem; color: #7dd87d; }
+    .mode-slider input[type="range"] {
+      -webkit-appearance: none; width: 48px; height: 3px;
+      background: #383838; border-radius: 2px; outline: none; cursor: pointer;
+    }
+    .mode-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 11px; height: 11px;
+      background: #666; border-radius: 50%; cursor: pointer;
+    }
+    .mode-slider input[type="range"]:hover::-webkit-slider-thumb { background: #bbb; }
+    #sl-freq { width: 96px; }
+
+    /* ── Visibility modes ── */
+    /* base fading (only active when none of the three body classes is set) */
+    .word .row-b span.faded { opacity: 0.1; }
+    .word.faded-gloss .row-c { opacity: 0.1; }
+    /* slider 0: hide all */
+    body.pinyin-0 .row-b { display: none; }
+    body.gloss-0  .row-c { display: none; }
+    /* slider 1 (½): known at 0.1 opacity, unknown at full — base rules handle this */
+    /* slider 2 (1): show all at full opacity */
+    body.pinyin-2 .row-b span.faded { opacity: 1; }
+    body.gloss-2  .word.faded-gloss .row-c { opacity: 1; }
+
+    /* ── Sentence blocks ── */
+    .sentence-block { margin-bottom: 2.8rem; }
+    .sentence-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.1rem; }
+    .row-label {
+      font-size: 0.62rem; color: #444; letter-spacing: 0.07em;
+      text-transform: uppercase; padding: 0.5rem 0 0.3rem;
+    }
+    .sentence-header .row-label { padding: 0; }
+    button.speak {
+      background: none; border: none; color: #555; font-size: 1rem;
+      cursor: pointer; padding: 0.1rem 0.3rem; line-height: 1;
+    }
+    button.speak:hover { color: #aaa; }
+    button.speak.playing { color: #e05050; }
+
+    /* ── Word grid ── */
+    .sentence { display: flex; flex-wrap: wrap; align-items: flex-start; row-gap: 1.2rem; }
+    .word { display: inline-flex; flex-direction: column; }
+
+    .word .row-a { display: flex; }
+    .word .row-a span {
+      width: 2.6rem; flex-shrink: 0; text-align: center;
+      font-size: 1.9rem;
+      color: var(--char-color, #f0d090);
+      padding: 0.25rem 0.05rem 0.1rem; cursor: default;
+    }
+    .word .row-a span.highlight { color: #e05050; }
+
+    .word .row-b { display: flex; user-select: none; }
+    .word .row-b span {
+      width: 2.6rem; flex-shrink: 0; text-align: center;
+      font-size: 0.73rem; color: #6ab0f5; padding: 0.05rem 0.05rem 0.3rem;
+    }
+    .word:not(.punct) .row-b span { cursor: pointer; }
+
+    .word .row-c {
+      font-size: 0.72rem; text-align: center; color: #7dd87d;
+      padding: 0.25rem 0.1rem;
+      border-top: 1px solid #2d2d2d; border-bottom: 1px solid #2d2d2d;
+      border-right: 1px solid #222; min-height: 1.55rem; user-select: none;
+    }
+    .word:not(.punct) .row-c { cursor: pointer; }
+    .word.punct .row-a span { color: #666; font-size: 1.5rem; }
+    .row-d { padding: 0.6rem 0.2rem 0; font-size: 0.95rem; color: #999; font-style: italic; }
+  </style>
+</head>
+<body>
+
+  <div id="loader">
+    <p>Select a chapter data file (e.g. <code>chapter1.js</code>) to begin.</p>
+    <button id="file-btn">Choose file…</button>
+    <input type="file" id="file-input" accept=".js">
+    <span id="loader-error"></span>
+  </div>
+
+  <div id="reader">
+    <div class="nav">
+      <button id="btn-prev">&#x2190; Prev</button>
+      <span class="nav-label" id="nav-label"></span>
+      <button id="btn-next">Next &#x2192;</button>
+      <span class="nav-sep"></span>
+      <label class="mode-slider">
+        <span class="mode-lbl"><span class="ml-zh">频</span><span class="ml-py">pín</span><span class="ml-en">freq</span></span>
+        <input type="range" id="sl-freq" min="0" max="4" step="0.01" value="2">
+      </label>
+      <label class="mode-slider">
+        <span class="mode-lbl"><span class="ml-zh">拼</span><span class="ml-py">pīn</span><span class="ml-en">pinyin</span></span>
+        <input type="range" id="sl-pinyin" min="0" max="2" step="1" value="1">
+      </label>
+      <label class="mode-slider">
+        <span class="mode-lbl"><span class="ml-zh">词</span><span class="ml-py">cí</span><span class="ml-en">gloss</span></span>
+        <input type="range" id="sl-gloss" min="0" max="2" step="1" value="1">
+      </label>
+    </div>
+    <div id="root"></div>
+  </div>
+
+  <script>
+    // ── File loading ──────────────────────────────────────────────────────────
+    document.getElementById('file-btn').addEventListener('click', () =>
+      document.getElementById('file-input').click());
+
+    document.getElementById('file-input').addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+      const fr = new FileReader();
+      fr.onload = e => {
+        const err = document.getElementById('loader-error');
+        try { eval(e.target.result); } catch (ex) {
+          err.style.display = 'block';
+          err.textContent = 'Error loading file: ' + ex.message;
+          return;
+        }
+        const data = window.CHAPTER1 || window.PARAGRAPHS;
+        if (!Array.isArray(data) || !data.length) {
+          err.style.display = 'block';
+          err.textContent = 'File loaded but no data found. Expected window.CHAPTER1 or window.PARAGRAPHS.';
+          return;
+        }
+        err.style.display = 'none';
+        initReader(data);
+      };
+      fr.readAsText(file);
+    });
+
+    // ── TTS ──────────────────────────────────────────────────────────────────
+    let voices = speechSynthesis.getVoices();
+    speechSynthesis.addEventListener('voiceschanged', () => { voices = speechSynthesis.getVoices(); });
+    let activeBtn = null;
+
+    function stopCurrent() {
+      speechSynthesis.cancel();
+      if (activeBtn) { activeBtn.textContent = '▶'; activeBtn.classList.remove('playing'); activeBtn = null; }
+    }
+    function speak(text, btn) {
+      if (activeBtn === btn) { stopCurrent(); return; }
+      stopCurrent();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN'; u.rate = 0.3;
+      const v = voices.find(v => v.lang.startsWith('zh'));
+      if (v) u.voice = v;
+      u.onstart = () => { activeBtn = btn; btn.textContent = '■'; btn.classList.add('playing'); };
+      u.onend   = () => { btn.textContent = '▶'; btn.classList.remove('playing'); if (activeBtn === btn) activeBtn = null; };
+      speechSynthesis.speak(u);
+    }
+
+    // ── Fade persistence ─────────────────────────────────────────────────────
+    const fadedPinyin       = new Set(JSON.parse(localStorage.getItem('faded-pinyin') || '[]'));
+    const fadedGloss        = new Set(JSON.parse(localStorage.getItem('faded-gloss')  || '[]'));
+    const pinyinSpansByChar = new Map();
+    const wordsByKey        = new Map();
+
+    function saveFaded() {
+      localStorage.setItem('faded-pinyin', JSON.stringify([...fadedPinyin]));
+      localStorage.setItem('faded-gloss',  JSON.stringify([...fadedGloss]));
+    }
+    function applyFaded() {
+      for (const [ch, spans] of pinyinSpansByChar)
+        for (const s of spans) s.classList.toggle('faded', fadedPinyin.has(ch));
+      for (const [key, divs] of wordsByKey)
+        for (const div of divs) div.classList.toggle('faded-gloss', fadedGloss.has(key));
+    }
+
+    // ── Visibility modes ──────────────────────────────────────────────────────
+    // slider 0=hide all, 1=hide known, 2=show all (default)
+    function loadInt(key, def) { const v = parseInt(localStorage.getItem(key), 10); return isNaN(v) ? def : v; }
+    let pinyinMode = Math.min(2, Math.max(0, loadInt('pinyin-mode', 2)));
+    let glossMode  = Math.min(2, Math.max(0, loadInt('gloss-mode',  2)));
+    const _fs = parseFloat(localStorage.getItem('freq-slider'));
+    let freqSlider = isNaN(_fs) ? 2 : Math.min(4, Math.max(0, _fs));
+
+    function applyModes() {
+      const b = document.body;
+      b.classList.toggle('pinyin-0', pinyinMode === 0);
+      b.classList.toggle('pinyin-1', pinyinMode === 1);
+      b.classList.toggle('pinyin-2', pinyinMode === 2);
+      b.classList.toggle('gloss-0',  glossMode  === 0);
+      b.classList.toggle('gloss-1',  glossMode  === 1);
+      b.classList.toggle('gloss-2',  glossMode  === 2);
+      document.getElementById('sl-pinyin').value = pinyinMode;
+      document.getElementById('sl-gloss').value  = glossMode;
+      document.getElementById('sl-freq').value   = freqSlider;
+      applyFreqColors();
+    }
+
+    document.getElementById('sl-pinyin').addEventListener('input', e => {
+      pinyinMode = parseInt(e.target.value, 10);
+      localStorage.setItem('pinyin-mode', pinyinMode); applyModes();
+    });
+    document.getElementById('sl-gloss').addEventListener('input', e => {
+      glossMode = parseInt(e.target.value, 10);
+      localStorage.setItem('gloss-mode', glossMode); applyModes();
+    });
+    document.getElementById('sl-freq').addEventListener('input', e => {
+      freqSlider = parseFloat(e.target.value);
+      localStorage.setItem('freq-slider', freqSlider); applyFreqColors();
+    });
+
+    // ── Character frequency coloring ─────────────────────────────────────────
+    // freqSlider ∈ [0,4]: maps log10(rank), so middle (2) = rank 100 = 100th most common char.
+    // Color is a Gaussian spotlight (sigma=1 decade) centered on the selected rank.
+    const charFreq = new Map();
+    const charRank = new Map();
+
+    function buildCharFreq(data) {
+      charFreq.clear();
+      for (const para of data)
+        for (const sent of para.sentences)
+          for (const w of sent.words)
+            if (!w.punct)
+              for (const ch of w.chars)
+                charFreq.set(ch, (charFreq.get(ch) || 0) + 1);
+      const sorted = [...charFreq.entries()].sort((a, b) => b[1] - a[1]);
+      charRank.clear();
+      sorted.forEach(([ch], i) => charRank.set(ch, i + 1));
+    }
+
+    function applyFreqColors() {
+      for (const span of document.querySelectorAll('.word:not(.punct) .row-a span')) {
+        const rank = charRank.get(span.textContent) || (charRank.size + 1);
+        const d = Math.log10(rank) - freqSlider;
+        const t = 1 / (1 + Math.exp(3 * d));  // sigmoid: common chars → 1, rare → 0
+        span.style.setProperty('--char-color',
+          `hsl(40, ${Math.round(5 + t * 71)}%, ${Math.round(38 + t * 37)}%)`);
+      }
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function renderSentence(sent) {
+      const ttsText = sent.words.map(w => w.chars.join('')).join('');
+
+      const block = document.createElement('div');
+      block.className = 'sentence-block';
+
+      const header = document.createElement('div');
+      header.className = 'sentence-header';
+      const btn = document.createElement('button');
+      btn.className = 'speak'; btn.title = 'Read aloud (slow)'; btn.textContent = '▶';
+      btn.addEventListener('click', () => speak(ttsText, btn));
+      header.appendChild(btn);
+      const lbl = document.createElement('div');
+      lbl.className = 'row-label'; lbl.textContent = '(a) original · (b) pinyin · (c) words';
+      header.appendChild(lbl);
+      block.appendChild(header);
+
+      const flow = document.createElement('div');
+      flow.className = 'sentence';
+
+      for (const w of sent.words) {
+        const wordKey = w.chars.join('');
+        const div = document.createElement('div');
+        div.className = 'word' + (w.punct ? ' punct' : '');
+
+        const rowA = document.createElement('div'); rowA.className = 'row-a';
+        for (const ch of w.chars) {
+          const s = document.createElement('span'); s.textContent = ch;
+          rowA.appendChild(s);
+        }
+
+        const rowB = document.createElement('div'); rowB.className = 'row-b';
+        const pinyins = w.pinyins || w.chars.map(() => '');
+        w.chars.forEach((ch, i) => {
+          const s = document.createElement('span'); s.textContent = pinyins[i];
+          if (!w.punct && pinyins[i]) {
+            if (!pinyinSpansByChar.has(ch)) pinyinSpansByChar.set(ch, []);
+            pinyinSpansByChar.get(ch).push(s);
+            s.addEventListener('click', () => {
+              fadedPinyin.has(ch) ? fadedPinyin.delete(ch) : fadedPinyin.add(ch);
+              saveFaded(); applyFaded();
+            });
+          }
+          rowB.appendChild(s);
+        });
+
+        const rowC = document.createElement('div');
+        rowC.className = 'row-c'; rowC.textContent = w.gloss || '';
+
+        div.appendChild(rowA); div.appendChild(rowB); div.appendChild(rowC);
+        flow.appendChild(div);
+
+        if (!w.punct) {
+          if (!wordsByKey.has(wordKey)) wordsByKey.set(wordKey, []);
+          wordsByKey.get(wordKey).push(div);
+          rowC.addEventListener('click', () => {
+            fadedGloss.has(wordKey) ? fadedGloss.delete(wordKey) : fadedGloss.add(wordKey);
+            saveFaded(); applyFaded();
+          });
+        }
+      }
+
+      block.appendChild(flow);
+      const lblD = document.createElement('div'); lblD.className = 'row-label'; lblD.textContent = '(d) translation';
+      block.appendChild(lblD);
+      const rowD = document.createElement('div'); rowD.className = 'row-d'; rowD.textContent = sent.translation;
+      block.appendChild(rowD);
+
+      return block;
+    }
+
+    // ── Paragraph navigation ─────────────────────────────────────────────────
+    let PARAGRAPHS_DATA = null;
+
+    function showParagraph(index) {
+      stopCurrent();
+      pinyinSpansByChar.clear(); wordsByKey.clear();
+      const root = document.getElementById('root');
+      root.innerHTML = '';
+
+      for (const s of PARAGRAPHS_DATA[index].sentences)
+        root.appendChild(renderSentence(s));
+
+      applyFaded();
+      applyModes();
+
+      // Hover highlight: group spans by character
+      const charSpans = Array.from(document.querySelectorAll('.word:not(.punct) .row-a span'));
+      const byChar = new Map();
+      for (const s of charSpans) {
+        if (!byChar.has(s.textContent)) byChar.set(s.textContent, []);
+        byChar.get(s.textContent).push(s);
+      }
+      for (const s of charSpans) {
+        const g = byChar.get(s.textContent);
+        s.addEventListener('mouseenter', () => { for (const x of g) x.classList.add('highlight'); });
+        s.addEventListener('mouseleave', () => { for (const x of g) x.classList.remove('highlight'); });
+      }
+
+      const total = PARAGRAPHS_DATA.length;
+      document.getElementById('nav-label').textContent = `Paragraph ${index + 1} / ${total}`;
+      document.getElementById('btn-prev').disabled = index === 0;
+      document.getElementById('btn-next').disabled = index === total - 1;
+      localStorage.setItem('paragraph-index', index);
+      window.scrollTo(0, 0);
+    }
+
+    function initReader(data) {
+      PARAGRAPHS_DATA = data;
+      buildCharFreq(data);
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('reader').style.display = 'block';
+
+      const total = data.length;
+      let cur = parseInt(localStorage.getItem('paragraph-index') || '0', 10);
+      if (cur >= total) cur = 0;
+
+      document.getElementById('btn-prev').addEventListener('click', () => {
+        const i = parseInt(localStorage.getItem('paragraph-index') || '0', 10);
+        if (i > 0) showParagraph(i - 1);
+      });
+      document.getElementById('btn-next').addEventListener('click', () => {
+        const i = parseInt(localStorage.getItem('paragraph-index') || '0', 10);
+        if (i < total - 1) showParagraph(i + 1);
+      });
+
+      showParagraph(cur);
+    }
+
+    // Apply persisted modes immediately (before data loads)
+    applyModes();
+
+    // Copy: strip block-level newlines
+    document.addEventListener('copy', e => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      e.clipboardData.setData('text/plain', sel.toString().replace(/\s+/g, ''));
+      e.preventDefault();
+    });
+  </script>
+</body>
+</html>
