@@ -46,6 +46,9 @@ Everything runs client-side; no server is needed.
 - Output: `window.CHAPTERX = [{sentences: [{translation, words: [{chars, pinyins, gloss}]}]}]`.
 
 ### TODO
+- Selection TTS (long-press to select → auto-read) works on Android via `contextmenu` event.
+  iOS Safari is stricter: user activation doesn't survive `setTimeout`, so the same approach
+  likely won't work there. Needs investigation.
 - Some source sentences are very long (e.g. paragraph 3, sentence 1 of chapter 1). The English
   translation sometimes contains internal `.`, `;`, or `...` that suggest natural split points. It may be
   possible to break these at matching Chinese punctuation (。；), but only when the English

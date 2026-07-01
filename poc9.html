@@ -324,15 +324,19 @@
       speechSynthesis.cancel();
       if (activeBtn) { activeBtn.textContent = '▶'; activeBtn.classList.remove('playing'); activeBtn = null; }
     }
-    function speak(text, btn, rate = 0.3) {
-      if (activeBtn === btn) { stopCurrent(); return; }
+    function speak(text, btn = null, rate = 0.3) {
+      if (btn && activeBtn === btn) { stopCurrent(); return; }
       stopCurrent();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-CN'; u.rate = rate;
-      const v = voices.find(v => v.lang.startsWith('zh'));
-      if (v) u.voice = v;
-      u.onstart = () => { activeBtn = btn; btn.textContent = '■'; btn.classList.add('playing'); };
-      u.onend   = () => { btn.textContent = '▶'; btn.classList.remove('playing'); if (activeBtn === btn) activeBtn = null; };
+      u.rate = rate;
+      const allVoices = speechSynthesis.getVoices().length ? speechSynthesis.getVoices() : voices;
+      const v = allVoices.find(v => v.lang.startsWith('zh'));
+      if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'zh-CN'; }
+      activeBtn = btn;
+      if (btn) { btn.textContent = '■'; btn.classList.add('playing'); }
+      const reset = () => { if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); } if (activeBtn === btn) activeBtn = null; };
+      u.onend = reset; u.onerror = reset;
+      speechSynthesis.resume();
       speechSynthesis.speak(u);
     }
 
@@ -496,9 +500,11 @@
         const rowA = document.createElement('div'); rowA.className = 'row-a';
         for (const ch of w.chars) {
           const s = document.createElement('span'); s.textContent = ch;
-          if (!w.punct) s.addEventListener('dblclick', () => openGlossaryForChar(ch));
           rowA.appendChild(s);
         }
+        if (!w.punct) rowA.addEventListener('dblclick', e => {
+          if (e.target.tagName === 'SPAN') openGlossaryForChar(e.target.textContent);
+        });
 
         const rowB = document.createElement('div'); rowB.className = 'row-b';
         const pinyins = w.pinyins || w.chars.map(() => '');
@@ -1418,6 +1424,8 @@
           const wordsArr      = Array.isArray(data) ? []   : (data.words  || data.gloss  || []);
           const charGroupsObj = Array.isArray(data) ? {}   : (data.charGroups || {});
           const wordGroupsObj = Array.isArray(data) ? {}   : (data.wordGroups || {});
+          virtualKnown = null; virtualKnownWords = null;
+          knownSnapshot = null; knownWordsSnapshot = null;
           fadedCharsOrder.length = 0; fadedChars.clear(); fadedCharGroups.clear();
           for (const ch of charsArr)
             if (typeof ch === 'string' && ch && !fadedChars.has(ch))
@@ -1437,6 +1445,8 @@
     });
     document.getElementById('g-clear').addEventListener('click', () => {
       if (!confirm('Clear all known characters and words?')) return;
+      virtualKnown = null; virtualKnownWords = null;
+      knownSnapshot = null; knownWordsSnapshot = null;
       fadedCharsOrder.length = 0; fadedChars.clear(); fadedCharGroups.clear();
       fadedWordsOrder.length = 0; fadedWords.clear(); fadedWordGroups.clear();
       saveFaded(); applyFaded(); renderGlossary();
@@ -1452,6 +1462,22 @@
       e.clipboardData.setData('text/plain', sel.toString().replace(/\s+/g, ''));
       e.preventDefault();
     });
+
+    // ── Selection TTS ─────────────────────────────────────────────────────────
+    // contextmenu fires on Android long-press and is a valid user-gesture for
+    // speech synthesis; touchend is not (long-press fires touchcancel instead).
+    if ('ontouchstart' in window) {
+      document.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        setTimeout(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed) return;
+          const text = sel.toString().replace(/\s+/g, '');
+          if (!text) return;
+          speak(text, null, 0.7);
+        }, 300);
+      });
+    }
   </script>
 </body>
 </html>
