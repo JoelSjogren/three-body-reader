@@ -621,6 +621,7 @@
     // ── Glossary ─────────────────────────────────────────────────────────────
     const charToWords   = new Map();
     const wordDataByKey = new Map();  // word key → {chars, pinyins, gloss}
+    const wordFreq      = new Map();  // word key → count across chapter
     const paraChars     = new Set();
     const paraWords     = new Set();
     const paraCharFreq  = new Map();  // char→count within current paragraph
@@ -633,13 +634,21 @@
     function buildGlossary(data) {
       charToWords.clear();
       wordDataByKey.clear();
+      wordFreq.clear();
       const seen = new Set();
+      const glossFreq = new Map(); // wordKey → Map<gloss, count>
       for (const para of data)
         for (const sent of para.sentences)
           for (const w of sent.words)
             if (!w.punct) {
               const key = w.chars.join('');
               const gloss = w.gloss || '';
+              wordFreq.set(key, (wordFreq.get(key) || 0) + 1);
+              if (gloss) {
+                if (!glossFreq.has(key)) glossFreq.set(key, new Map());
+                const gm = glossFreq.get(key);
+                gm.set(gloss, (gm.get(gloss) || 0) + 1);
+              }
               if (!seen.has(key)) {
                 seen.add(key);
                 const wd = { chars: w.chars, pinyins: w.pinyins || [], gloss, glosses: gloss ? [gloss] : [] };
@@ -653,11 +662,18 @@
                 if (wd && !wd.glosses.includes(gloss)) wd.glosses.push(gloss);
               }
             }
+      for (const [key, wd] of wordDataByKey) {
+        const gm = glossFreq.get(key);
+        if (gm && wd.glosses.length > 1)
+          wd.glosses.sort((a, b) => (gm.get(b) || 0) - (gm.get(a) || 0));
+      }
     }
 
     function makeWordChips(wordObjs) {
       const chips = document.createElement('div'); chips.className = 'g-chips';
-      for (const w of wordObjs.slice(0, 8)) {
+      const sorted = wordObjs.slice().sort((a, b) =>
+        (wordFreq.get(b.chars.join('')) || 0) - (wordFreq.get(a.chars.join('')) || 0));
+      for (const w of sorted.slice(0, 8)) {
         const wKey = w.chars.join('');
         const chip = document.createElement('div'); chip.className = 'g-chip';
         const spk = document.createElement('button'); spk.className = 'g-chip-speak'; spk.textContent = '▶';
@@ -670,6 +686,7 @@
         chip.appendChild(spk); chip.appendChild(zh); chip.appendChild(py); chip.appendChild(en);
         chip.addEventListener('dblclick', e => {
           e.stopPropagation();
+          if (!(wordsByKey.get(wKey) || []).length) return;
           closeGlossary();
           pinWord(wKey);
         });
@@ -1266,6 +1283,13 @@
 
           const tdCh = document.createElement('td'); tdCh.className = 'g-td-ch';
           tdCh.textContent = ch;
+          tdCh.draggable = true;
+          tdCh.addEventListener('dragstart', e => {
+            dragInfo = { type: 'char', ch };
+            tr.style.opacity = '0.4';
+            e.dataTransfer.setDragImage(tdCh, e.offsetX, e.offsetY);
+          });
+          tdCh.addEventListener('dragend', () => { dragInfo = null; tr.style.opacity = ''; });
 
           const tdN = document.createElement('td'); tdN.className = 'g-td-n';
           tdN.textContent = useParaFreq ? (paraCharFreq.get(ch) || '')
