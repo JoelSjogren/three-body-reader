@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 
 # Explicit allowlist — nothing else is ever served
 STATIC = {
-    '/chapter1.js': (ROOT / 'example-data' / 'chapter1_ver2.js', 'application/javascript; charset=utf-8'),
+    '/chapter1.js': (ROOT / 'example-data' / 'chapter1_ver3.js', 'application/javascript; charset=utf-8'),
     '/charstats.js': (ROOT / 'charstats.js', 'application/javascript; charset=utf-8'),
 }
 
