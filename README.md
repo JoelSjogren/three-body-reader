@@ -5,10 +5,10 @@ A Chinese language learning reader for 《三体》. Each sentence is shown in 4
 
 ## Workflow
 
-Run `pipeline.ipynb` in Google Colab (Runtime → T4 GPU) to process the EPUB and produce a
-`chapterN.js` data file. The notebook prompts for the EPUB upload first, then installs
-dependencies, starts Ollama, and runs Qwen2.5:14b over every sentence. When done, it downloads
-the JS file. Open `poc9.html` in Chrome, click "Choose file…", and select the downloaded `.js`.
+Run `pipeline.ipynb` in Google Colab (Runtime → T4 GPU) to process the EPUB and produce
+`chapterN.js` plus `chapterN-debug.json` (for `align-debug.py`). The notebook prompts for the
+EPUB upload first, then installs dependencies, starts Ollama, runs Qwen2.5:14b over every
+sentence, and downloads both files. Open `poc9.html` in Chrome and select the `.js` file.
 Everything runs client-side; no server is needed.
 
 ## Files
@@ -19,7 +19,7 @@ Everything runs client-side; no server is needed.
 | `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
 | `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
 | `poc9.html` | poc8 + pinyin/gloss sliders, frequency coloring, vocabulary glossary (known chars/words tabs, drag-to-reorder, groups, multi-gloss chips, TTS per word) |
-| `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` via jieba + pypinyin + Qwen2.5:14b |
+| `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` + debug JSON via jieba + pypinyin + Qwen2.5:14b |
 | `charstats.py` | Extracts book-wide CJK character frequencies from the EPUB; outputs `charstats.js` |
 
 ## Goals
@@ -46,24 +46,24 @@ Everything runs client-side; no server is needed.
 - Output: `window.CHAPTERX = [{sentences: [{translation, words: [{chars, pinyins, gloss}]}]}]`.
 
 ### TODO
-- Selection TTS (long-press to select → auto-read) works on Android via `contextmenu` event.
-  iOS Safari is stricter: user activation doesn't survive `setTimeout`, so the same approach
-  likely won't work there. Needs investigation.
-- Some source sentences are very long (e.g. paragraph 3, sentence 1 of chapter 1). The English
-  translation sometimes contains internal `.`, `;`, or `...` that suggest natural split points. It may be
-  possible to break these at matching Chinese punctuation (。；), but only when the English
-  punctuation position aligns with a Chinese clause boundary — otherwise the word/gloss arrays
-  would no longer correspond to a single coherent sentence.
+- Selection TTS (long-press → auto-read) works on Android via `contextmenu`. iOS Safari is
+  stricter (user activation doesn't survive `setTimeout`); needs investigation.
+- Very long sentences (e.g. para 3 s1 of ch. 1) could be split at Chinese punctuation (。；),
+  but only where the English punctuation aligns with the Chinese clause boundary — otherwise
+  the word/gloss arrays no longer correspond to a single coherent sentence.
 - Allow initiating a drag of a character into a tab, starting from either of "known chars", "known
   words" (then dragging the whole word instead), "para", "chapter", "book".
+- Translation quality: focus on coverage, not polish — fix places where meaning is lost or
+  garbled (truncated output, wrong facts, dropped words, tense drift) before restyling
+  sentences that already read fine; meaning + every word preserved beats literary perfection.
 
 ### Handling imperfect Qwen output
 - Qwen is asked for `{"glosses": [{"seg": word, "gloss": "…"}, …], "translation": "…"}`.
-- Count mismatches (Qwen merging or splitting jieba segments) are resolved by greedy
-  left-to-right alignment with lookahead: only unmatched segments fall back to CC-CEDICT.
-- JSON parse failures keep Qwen's translation but substitute CC-CEDICT for all glosses.
-- Common structural particles (的, 了, 着 …) are given fixed shorthand glosses ([poss.] etc.)
-  via prompt instruction to avoid verbose CC-CEDICT entries.
+- Count mismatches (Qwen merging/splitting jieba segments) are resolved by character-span
+  alignment; unmatched segments fall back to COMMON_GLOSSES, then CC-CEDICT.
+- On JSON parse failure (usually truncated output), complete gloss pairs are salvaged by regex
+  and aligned as usual; the raw output is kept as the translation — it still helps when reading.
+- Common particles (的, 了, 着 …) get fixed shorthand glosses ([poss.] etc.) via the prompt.
 
 ### Reader (poc9.html)
 - Data loaded via `<input type="file">` + `FileReader` + `eval()` — works over `file://`.
