@@ -24,8 +24,8 @@ Everything runs client-side; no server is needed.
 
 ## Goals
 
-- [ ] Web app that runs on both phone and laptop — laptop works; phone blocked: iOS forbids
-      opening `file://` URLs in the browser entirely (unrelated to the file picker mechanism)
+- [~] Runs on phone and laptop — laptop works; Android via `android/` (offline WebView app,
+      `./gradlew installDebug`); iOS blocked: browsers there forbid opening `file://` URLs
 - [~] Read local EPUB files — pipeline processes the EPUB; next step is (a)+(b)-only mode
       (pypinyin + jieba, no Qwen) so the EPUB can be loaded with a much simpler pipeline
 - [ ] Hostable on GitHub Pages — reader HTML is static; hosting of book data is not planned

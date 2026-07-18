@@ -11,3 +11,5 @@
   parse status, alignment misses). Never commit these outputs.
 - **`align-debug.py`**: offline alignment iteration tool — reads `chapter1-debug.json` and
   benchmarks the alignment algorithm without re-running Qwen. Logbook at end of file tracks changes.
+- **`android/`**: `bundleDemoAssets` (app/build.gradle.kts) generates assets from poc9 + example-data
+  at build time, mirroring demo.py's injections; it also stubs speechSynthesis (WebView lacks it).
