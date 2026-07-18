@@ -19,7 +19,7 @@ Everything runs client-side; no server is needed.
 | `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
 | `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
 | `poc9.html` | poc8 + pinyin/gloss sliders, frequency coloring, vocabulary glossary (known chars/words tabs, drag-to-reorder, groups, multi-gloss chips, TTS per word) |
-| `pipeline.ipynb` | Colab notebook: EPUB → `chapterN.js` + debug JSON via jieba + pypinyin + Qwen2.5:14b |
+| `pipeline.ipynb` / `pipeline.py` | EPUB → `chapterN.js` + debug JSON via jieba + pypinyin + Qwen (Colab notebook / local ollama script) |
 | `charstats.py` | Extracts book-wide CJK character frequencies from the EPUB; outputs `charstats.js` |
 
 ## Goals
