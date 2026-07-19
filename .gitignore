@@ -3,3 +3,4 @@ __pycache__/
 *.epub
 chapter*.js
 chapter*.json
+*.zip
