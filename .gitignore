@@ -1,2 +1,5 @@
 example-data/
 __pycache__/
+*.epub
+chapter*.js
+chapter*.json

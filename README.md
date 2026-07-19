@@ -16,7 +16,7 @@ Everything runs client-side; no server is needed.
 | File | Purpose |
 |------|---------|
 | `poc1.html` | Hard-coded proof of concept — single sentence, 4-row layout |
-| `poc7.html` | Paragraph navigation with hardcoded chapter 1 data |
+| `poc7.html` | Paragraph navigation; loads chapter data from `example-data/paragraphs-poc7.js` |
 | `poc8.html` | Full reader: file picker, paragraph navigation, TTS, click-to-fade |
 | `poc9.html` | poc8 + pinyin/gloss sliders, frequency coloring, vocabulary glossary (known chars/words tabs, drag-to-reorder, groups, multi-gloss chips, TTS per word) |
 | `pipeline.ipynb` / `pipeline.py` | EPUB → `chapterN.js` + debug JSON via jieba + pypinyin + Qwen (Colab notebook / local ollama script) |
